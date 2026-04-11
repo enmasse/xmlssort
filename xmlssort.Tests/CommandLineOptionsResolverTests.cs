@@ -6,7 +6,7 @@ public class CommandLineOptionsResolverTests
     public async Task Resolve_UsesConfigurationDefaultsWhenCommandLineDoesNotProvideOperations()
     {
         var commandLineOptions = CommandLineOptions.Parse(["input.xml"]);
-        var configuration = new UserConfiguration([SortRule.Parse("/Catalog/Books/Book:@id")], formatXml: true, formatJson: true);
+        var configuration = new UserConfiguration([SortRule.Parse("/Catalog/Books/Book:@id")], FormatXml: true, FormatJson: true);
 
         var resolved = CommandLineOptionsResolver.Resolve(commandLineOptions, configuration);
 
@@ -20,7 +20,7 @@ public class CommandLineOptionsResolverTests
     public async Task Resolve_PrefersCommandLineSortRulesOverConfigurationDefaults()
     {
         var commandLineOptions = CommandLineOptions.Parse(["input.xml", "--sort", "/Catalog/Books/Book:Title"]);
-        var configuration = new UserConfiguration([SortRule.Parse("/Catalog/Books/Book:@id")], formatXml: false, formatJson: false);
+        var configuration = new UserConfiguration([SortRule.Parse("/Catalog/Books/Book:@id")], FormatXml: false, FormatJson: false);
 
         var resolved = CommandLineOptionsResolver.Resolve(commandLineOptions, configuration);
 
@@ -32,7 +32,7 @@ public class CommandLineOptionsResolverTests
     public async Task Resolve_UsesConfigurationFormatXmlWhenCommandLineOmitsIt()
     {
         var commandLineOptions = CommandLineOptions.Parse(["input.xml", "--sort", "/Catalog/Books/Book:@id"]);
-        var configuration = new UserConfiguration([], formatXml: true, formatJson: false);
+        var configuration = new UserConfiguration([], FormatXml: true, FormatJson: false);
 
         var resolved = CommandLineOptionsResolver.Resolve(commandLineOptions, configuration);
 

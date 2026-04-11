@@ -1,6 +1,6 @@
 # xmlssort
 
-`xmlssort` is a .NET 10 console application for sorting XML documents while preserving the document hierarchy.
+`xmlssort` is a .NET 9 console application for sorting XML documents while preserving the document hierarchy.
 
 It supports:
 - file input or `stdin`
@@ -333,7 +333,7 @@ Publish for macOS arm64:
 dotnet publish .\xmlssort\xmlssort.csproj -c Release -r osx-arm64
 ```
 
-The executable is written to a runtime-specific publish folder under `xmlssort\bin\Release\net10.0\<rid>\publish\`.
+The executable is written to a runtime-specific publish folder under `xmlssort\bin\Release\net9.0\<rid>\publish\`.
 
 This uses standard single-file publishing, so it does not require Native AOT toolchain prerequisites.
 
