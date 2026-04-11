@@ -80,7 +80,7 @@ public class XmlSortApplicationTests
         var payload = document.Root!.Element("Payload")!.Value;
 
         await Assert.That(exitCode).IsEqualTo(0);
-        await Assert.That(payload.Contains(Environment.NewLine, StringComparison.Ordinal)).IsTrue();
+        await Assert.That(payload.Contains('\n', StringComparison.Ordinal)).IsTrue();
         await Assert.That(payload.Contains("\"name\": \"Alice\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(string.IsNullOrWhiteSpace(stderr)).IsTrue();
     }
