@@ -39,7 +39,19 @@ public class CommandLineParsingTests
         var options = CommandLineOptions.Parse(["input.xml", "--format-json"]);
 
         await Assert.That(options.InputPath).IsEqualTo("input.xml");
+        await Assert.That(options.FormatXml).IsFalse();
         await Assert.That(options.FormatJson).IsTrue();
+        await Assert.That(options.SortRules.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Parse_ReadsGlobalFormatXmlFlag()
+    {
+        var options = CommandLineOptions.Parse(["input.xml", "--format-xml"]);
+
+        await Assert.That(options.InputPath).IsEqualTo("input.xml");
+        await Assert.That(options.FormatXml).IsTrue();
+        await Assert.That(options.FormatJson).IsFalse();
         await Assert.That(options.SortRules.Count).IsEqualTo(0);
     }
 
@@ -50,6 +62,7 @@ public class CommandLineParsingTests
 
         await Assert.That(options.InputPath).IsEqualTo("input.xml");
         await Assert.That(options.SortRules.Count).IsEqualTo(0);
+        await Assert.That(options.FormatXml).IsFalse();
         await Assert.That(options.FormatJson).IsFalse();
     }
 

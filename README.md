@@ -6,6 +6,7 @@ It supports:
 - file input or `stdin`
 - `stdout` output or writing to a file
 - JSON configuration defaults from the user profile
+- optional canonical XML formatting for diff-friendly output
 - sorting by direct child element values
 - sorting by attribute values
 - optional formatting of embedded JSON in element values
@@ -54,7 +55,7 @@ Output:
 ## Command line usage
 
 ```text
-xmlssort [input-file | -] [--sort <path:key[,key...]> ...] [--format-json] [--output <file | ->]
+xmlssort [input-file | -] [--sort <path:key[,key...]> ...] [--format-xml] [--format-json] [--output <file | ->]
 ```
 
 If command-line operations are omitted, defaults can come from the user profile configuration file.
@@ -71,6 +72,7 @@ Examples:
 xmlssort books.xml --sort "/Catalog/Books/Book:@id"
 xmlssort books.xml --sort "/Catalog/Books/Book:Author,Title" --output sorted.xml
 Get-Content books.xml | xmlssort --sort "/Catalog/Books/Book:@id desc,Title"
+xmlssort books.xml --format-xml
 xmlssort payloads.xml --format-json
 xmlssort books.xml
 ```
@@ -149,6 +151,41 @@ In this example:
 
 This lets each hierarchy level use the key that makes sense for that level.
 
+## Canonical XML formatting
+
+Use `--format-xml` to rewrite the output with normalized indentation so it is easier to compare in standard diff tools.
+
+- The flag is global.
+- It applies when writing output.
+- Indentation-only whitespace between nested elements is normalized.
+- Leaf text values are left intact.
+
+Example:
+
+Input:
+
+```xml
+<Catalog><Books><Book id="2" /><Book id="1" /></Books></Catalog>
+```
+
+Command:
+
+```powershell
+xmlssort books.xml --sort "/Catalog/Books/Book:@id" --format-xml
+```
+
+Output:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<Catalog>
+  <Books>
+    <Book id="1" />
+    <Book id="2" />
+  </Books>
+</Catalog>
+```
+
 ## Embedded JSON formatting
 
 Use `--format-json` to pretty-print valid JSON found in leaf element values.
@@ -207,6 +244,7 @@ Command-line options override configuration defaults.
 Supported settings:
 
 - `sort` - array of default sort rules
+- `formatXml` - enables canonical XML formatting by default
 - `formatJson` - enables embedded JSON formatting by default
 
 Example:
@@ -216,6 +254,7 @@ Example:
   "sort": [
     "/Catalog/Books/Book:@id"
   ],
+  "formatXml": true,
   "formatJson": true
 }
 ```
@@ -254,6 +293,7 @@ You can still provide multiple `--sort` rules when different hierarchy levels ne
 - `xmlssort/XmlSortApplication.cs` - application flow and console/file I/O
 - `xmlssort/CommandLineOptions.cs` - command-line parsing
 - `xmlssort/CommandLineOptionsResolver.cs` - configuration-aware option resolution
+- `xmlssort/CanonicalXmlFormatter.cs` - diff-friendly XML output formatting
 - `xmlssort/CommandLineHelp.cs` - CLI help text
 - `xmlssort/IUserConfigurationLoader.cs` - configuration loading abstraction
 - `xmlssort/SortRule.cs` - sort rule parsing

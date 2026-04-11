@@ -86,6 +86,27 @@ public class XmlSortApplicationTests
     }
 
     [Test]
+    public async Task Run_FormatsXmlWhenGlobalFlagIsApplied()
+    {
+        const string input = "<Catalog><Books><Book id=\"2\"/><Book id=\"1\"/></Books></Catalog>";
+
+        int exitCode;
+        string stdout;
+
+        lock (ConsoleLock)
+        {
+            using var consoleScope = new ConsoleScope(input);
+
+            exitCode = new XmlSortApplication().Run(["--sort", "/Catalog/Books/Book:@id", "--format-xml"]);
+            stdout = consoleScope.StandardOutput;
+        }
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(stdout.Contains(Environment.NewLine + "  <Books>", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(stdout.Contains(Environment.NewLine + "    <Book id=\"1\" />", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
     public async Task Run_UsesConfigurationDefaultsWhenCommandLineOmitsOperations()
     {
         const string input = "<Catalog><Books><Book id=\"2\" /><Book id=\"1\" /></Books></Catalog>";
@@ -100,6 +121,7 @@ public class XmlSortApplicationTests
 
             exitCode = new XmlSortApplication(new FakeUserConfigurationLoader(new UserConfiguration(
                 [SortRule.Parse("/Catalog/Books/Book:@id")],
+                FormatXml: false,
                 FormatJson: false))).Run([]);
             stdout = consoleScope.StandardOutput;
             stderr = consoleScope.StandardError;
@@ -131,6 +153,7 @@ public class XmlSortApplicationTests
 
             exitCode = new XmlSortApplication(new FakeUserConfigurationLoader(new UserConfiguration(
                 [SortRule.Parse("/Catalog/Books/Book:Title desc")],
+                FormatXml: false,
                 FormatJson: false))).Run(["--sort", "/Catalog/Books/Book:@id"]);
             stdout = consoleScope.StandardOutput;
         }
@@ -144,6 +167,29 @@ public class XmlSortApplicationTests
 
         await Assert.That(exitCode).IsEqualTo(0);
         await Assert.That(string.Join("|", ids)).IsEqualTo("1|2|3");
+    }
+
+    [Test]
+    public async Task Run_UsesConfigurationDefaultForFormatXml()
+    {
+        const string input = "<Catalog><Books><Book id=\"2\"/><Book id=\"1\"/></Books></Catalog>";
+
+        int exitCode;
+        string stdout;
+
+        lock (ConsoleLock)
+        {
+            using var consoleScope = new ConsoleScope(input);
+
+            exitCode = new XmlSortApplication(new FakeUserConfigurationLoader(new UserConfiguration(
+                [SortRule.Parse("/Catalog/Books/Book:@id")],
+                FormatXml: true,
+                FormatJson: false))).Run([]);
+            stdout = consoleScope.StandardOutput;
+        }
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(stdout.Contains(Environment.NewLine + "  <Books>", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]

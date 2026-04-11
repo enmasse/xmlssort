@@ -17,6 +17,7 @@ public class UserProfileConfigurationLoaderTests
                   "sort": [
                     "/Catalog/Books/Book:@id"
                   ],
+                  "formatXml": true,
                   "formatJson": true
                 }
                 """);
@@ -26,6 +27,7 @@ public class UserProfileConfigurationLoaderTests
             await Assert.That(configuration is not null).IsTrue();
             await Assert.That(configuration!.SortRules.Count).IsEqualTo(1);
             await Assert.That(configuration.SortRules[0].TargetElementName).IsEqualTo("Book");
+            await Assert.That(configuration.FormatXml).IsTrue();
             await Assert.That(configuration.FormatJson).IsTrue();
         }
         finally
@@ -117,10 +119,10 @@ public class UserProfileConfigurationLoaderTests
 
             await Assert.That(threw).IsTrue();
             await Assert.That(message.Contains("Invalid configuration file", StringComparison.Ordinal)).IsTrue();
-         }
-         finally
-         {
-             tempDirectory.Delete(true);
-         }
-     }
- }
+        }
+        finally
+        {
+            tempDirectory.Delete(true);
+        }
+    }
+}

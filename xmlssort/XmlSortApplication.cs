@@ -39,7 +39,7 @@ internal sealed class XmlSortApplication(IUserConfigurationLoader? userConfigura
                 EmbeddedJsonFormatter.Apply(document);
             }
 
-            WriteOutput(document, options.OutputPath);
+            WriteOutput(document, options.OutputPath, options.FormatXml);
             return 0;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.Xml.XmlException)
@@ -66,15 +66,26 @@ internal sealed class XmlSortApplication(IUserConfigurationLoader? userConfigura
         return File.ReadAllText(inputPath);
     }
 
-    private static void WriteOutput(XDocument document, string? outputPath)
+    private static void WriteOutput(XDocument document, string? outputPath, bool formatXml)
     {
         if (string.IsNullOrWhiteSpace(outputPath) || outputPath == "-")
         {
-            document.Save(Console.Out, SaveOptions.DisableFormatting);
+            WriteDocument(document, Console.Out, formatXml);
             return;
         }
 
         using var writer = new StreamWriter(outputPath);
+        WriteDocument(document, writer, formatXml);
+    }
+
+    private static void WriteDocument(XDocument document, TextWriter writer, bool formatXml)
+    {
+        if (formatXml)
+        {
+            CanonicalXmlFormatter.Write(document, writer);
+            return;
+        }
+
         document.Save(writer, SaveOptions.DisableFormatting);
     }
 }

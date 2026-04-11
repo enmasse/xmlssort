@@ -2,6 +2,7 @@ internal sealed record CommandLineOptions(
     string? InputPath,
     string? OutputPath,
     IReadOnlyList<SortRule> SortRules,
+    bool FormatXml,
     bool FormatJson,
     bool ShowHelp)
 {
@@ -10,6 +11,7 @@ internal sealed record CommandLineOptions(
         string? inputPath = null;
         string? outputPath = null;
         var sortRules = new List<SortRule>();
+        var formatXml = false;
         var formatJson = false;
         var showHelp = false;
 
@@ -49,6 +51,12 @@ internal sealed record CommandLineOptions(
                 continue;
             }
 
+            if (string.Equals(arg, "--format-xml", StringComparison.OrdinalIgnoreCase))
+            {
+                formatXml = true;
+                continue;
+            }
+
             if (string.Equals(arg, "--output", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(arg, "-o", StringComparison.OrdinalIgnoreCase))
             {
@@ -69,7 +77,7 @@ internal sealed record CommandLineOptions(
             inputPath = arg;
         }
 
-        return new CommandLineOptions(inputPath, outputPath, sortRules, formatJson, showHelp);
+        return new CommandLineOptions(inputPath, outputPath, sortRules, formatXml, formatJson, showHelp);
     }
 
     private static string ReadOptionValue(string[] args, ref int index, string optionName)
