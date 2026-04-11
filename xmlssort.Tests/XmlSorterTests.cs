@@ -129,6 +129,50 @@ public class XmlSorterTests
     }
 
     [Test]
+    public async Task Apply_PreservesNonTargetContentWhileReorderingMatchingElements()
+    {
+        var document = XDocument.Parse(
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <?catalog keep?>
+            <Catalog version="1">
+              <Header><![CDATA[{"message":"keep"}]]></Header>
+              <Books>
+                <!-- keep -->
+                <Book id="2"><Title>Zebra</Title><Meta foo="b">Beta</Meta></Book>
+                <?between stay?>
+                <Book id="1"><Title>Alpha</Title><Meta foo="a">Alpha</Meta></Book>
+                <Note importance="high">unchanged</Note>
+              </Books>
+              <Footer>tail</Footer>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:@id")]);
+
+        var expected = XDocument.Parse(
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <?catalog keep?>
+            <Catalog version="1">
+              <Header><![CDATA[{"message":"keep"}]]></Header>
+              <Books>
+                <!-- keep -->
+                <Book id="1"><Title>Alpha</Title><Meta foo="a">Alpha</Meta></Book>
+                <?between stay?>
+                <Book id="2"><Title>Zebra</Title><Meta foo="b">Beta</Meta></Book>
+                <Note importance="high">unchanged</Note>
+              </Books>
+              <Footer>tail</Footer>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        await Assert.That(XNode.DeepEquals(document, expected)).IsTrue();
+    }
+
+    [Test]
     public async Task Apply_ThrowsForRootMismatch()
     {
         var document = XDocument.Parse("<Library><Sections /></Library>");
