@@ -37,7 +37,7 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Run tests
-        run: dotnet test xmlssort.Tests/xmlssort.Tests.csproj --configuration Release
+        run: dotnet test xmlssort.Tests/xmlssort.Tests.csproj --configuration Release --testing-platform
 
       - name: Publish
         run: >
