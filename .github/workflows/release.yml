@@ -74,10 +74,10 @@ jobs:
 
       - name: Rename artifacts
         run: |
-          mv artifacts/xmlssort-linux-x64/xmlssort   artifacts/xmlssort-linux-x64
-          mv artifacts/xmlssort-win-x64/xmlssort.exe artifacts/xmlssort-win-x64.exe
-          mv artifacts/xmlssort-osx-x64/xmlssort     artifacts/xmlssort-osx-x64
-          mv artifacts/xmlssort-osx-arm64/xmlssort   artifacts/xmlssort-osx-arm64
+          mv artifacts/xmlssort-linux-x64/xmlssort   ./xmlssort-linux-x64
+          mv artifacts/xmlssort-win-x64/xmlssort.exe ./xmlssort-win-x64.exe
+          mv artifacts/xmlssort-osx-x64/xmlssort     ./xmlssort-osx-x64
+          mv artifacts/xmlssort-osx-arm64/xmlssort   ./xmlssort-osx-arm64
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -85,7 +85,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: |
-            artifacts/xmlssort-linux-x64
-            artifacts/xmlssort-win-x64.exe
-            artifacts/xmlssort-osx-x64
-            artifacts/xmlssort-osx-arm64
+            xmlssort-linux-x64
+            xmlssort-win-x64.exe
+            xmlssort-osx-x64
+            xmlssort-osx-arm64
