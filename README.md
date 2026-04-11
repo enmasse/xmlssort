@@ -4,6 +4,8 @@
 
 It supports:
 - file input or `stdin`
+- multiple file inputs and wildcard patterns for batch processing
+- recursive directory input for batch processing
 - `stdout` output or writing to a file
 - JSON configuration defaults from the user profile
 - optional canonical XML formatting for diff-friendly output
@@ -55,7 +57,8 @@ Output:
 ## Command line usage
 
 ```text
-xmlssort [input-file | -] [--sort <path:key[,key...]> ...] [--format-xml] [--format-json] [--output <file | ->]
+xmlssort [input-file | input-pattern | -] ... [--sort <path:key[,key...]> ...] [--format-xml] [--format-json] [--output <file | ->]
+xmlssort <input-file | input-pattern | input-directory> ... [--sort <path:key[,key...]> ...] [--format-xml] [--format-json] (--in-place | --rename | --write-new) [--suffix <text>] [--output-dir <directory>]
 ```
 
 If command-line operations are omitted, defaults can come from the user profile configuration file.
@@ -65,6 +68,12 @@ If command-line operations are omitted, defaults can come from the user profile 
 - If no input file is supplied, the tool reads from `stdin`.
 - `-` can be used explicitly for `stdin` or `stdout`.
 - If `--output` is omitted, the sorted XML is written to `stdout`.
+- Wildcard inputs such as `*.xml` are expanded by the application so the same command works on Windows and shells that do not expand globs automatically.
+- Directory inputs are processed recursively and include `*.xml` files.
+- When multiple files are supplied, use `--in-place`, `--rename`, or `--write-new`.
+- `--rename` moves each sorted result to a sibling file using `--suffix` or the default `.sorted` suffix.
+- `--write-new` keeps the original file and writes a sibling file using `--suffix` or the default `.sorted` suffix.
+- `--output-dir` can be used with `--write-new` to write results into another directory while preserving the input directory structure.
 
 Examples:
 
@@ -72,6 +81,11 @@ Examples:
 xmlssort books.xml --sort "/Catalog/Books/Book:@id"
 xmlssort books.xml --sort "/Catalog/Books/Book:Author,Title" --output sorted.xml
 Get-Content books.xml | xmlssort --sort "/Catalog/Books/Book:@id desc,Title"
+xmlssort .\xml --sort "/Catalog/Books/Book:@id" --in-place
+xmlssort "*.xml" --sort "/Catalog/Books/Book:@id" --in-place
+xmlssort .\xml --sort "/Catalog/Books/Book:@id" --write-new --output-dir .\sorted
+xmlssort "*.xml" --sort "/Catalog/Books/Book:@id" --write-new --suffix .sorted
+xmlssort "*.xml" --sort "/Catalog/Books/Book:@id" --rename
 xmlssort books.xml --format-xml
 xmlssort payloads.xml --format-json
 xmlssort books.xml

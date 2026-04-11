@@ -67,6 +67,94 @@ public class CommandLineParsingTests
     }
 
     [Test]
+    public async Task Parse_ReadsMultipleInputsWhenBatchModeIsUsed()
+    {
+        var options = CommandLineOptions.Parse(["*.xml", "nested\\*.xml", "--sort", "/Catalog/Books/Book:@id", "--write-new"]);
+
+        await Assert.That(options.InputPaths.Count).IsEqualTo(2);
+        await Assert.That(options.BatchOutputMode).IsEqualTo(BatchOutputMode.WriteNew);
+        await Assert.That(options.Suffix).IsEqualTo(BatchOutputPathResolver.DefaultSuffix);
+    }
+
+    [Test]
+    public async Task Parse_ReadsExplicitSuffixForRenameMode()
+    {
+        var options = CommandLineOptions.Parse(["*.xml", "--sort", "/Catalog/Books/Book:@id", "--rename", "--suffix", ".bak"]);
+
+        await Assert.That(options.BatchOutputMode).IsEqualTo(BatchOutputMode.Rename);
+        await Assert.That(options.Suffix).IsEqualTo(".bak");
+    }
+
+    [Test]
+    public async Task Parse_ReadsOutputDirectoryForWriteNewMode()
+    {
+        var options = CommandLineOptions.Parse(["input", "--sort", "/Catalog/Books/Book:@id", "--write-new", "--output-dir", "sorted"]);
+
+        await Assert.That(options.BatchOutputMode).IsEqualTo(BatchOutputMode.WriteNew);
+        await Assert.That(options.OutputDirectory).IsEqualTo("sorted");
+    }
+
+    [Test]
+    public async Task Parse_ThrowsForMultipleInputsWithoutBatchMode()
+    {
+        var threw = false;
+        var message = string.Empty;
+
+        try
+        {
+            CommandLineOptions.Parse(["a.xml", "b.xml", "--sort", "/Catalog/Books/Book:@id"]);
+        }
+        catch (ArgumentException ex)
+        {
+            threw = true;
+            message = ex.Message;
+        }
+
+        await Assert.That(threw).IsTrue();
+        await Assert.That(message).IsEqualTo("Multiple input files require --in-place, --rename, or --write-new.");
+    }
+
+    [Test]
+    public async Task Parse_ThrowsForSuffixWithoutRenameOrWriteNew()
+    {
+        var threw = false;
+        var message = string.Empty;
+
+        try
+        {
+            CommandLineOptions.Parse(["input.xml", "--sort", "/Catalog/Books/Book:@id", "--suffix", ".sorted"]);
+        }
+        catch (ArgumentException ex)
+        {
+            threw = true;
+            message = ex.Message;
+        }
+
+        await Assert.That(threw).IsTrue();
+        await Assert.That(message).IsEqualTo("The --suffix option can only be used with --rename or --write-new.");
+    }
+
+    [Test]
+    public async Task Parse_ThrowsForOutputDirectoryWithoutWriteNew()
+    {
+        var threw = false;
+        var message = string.Empty;
+
+        try
+        {
+            CommandLineOptions.Parse(["input", "--sort", "/Catalog/Books/Book:@id", "--rename", "--output-dir", "sorted"]);
+        }
+        catch (ArgumentException ex)
+        {
+            threw = true;
+            message = ex.Message;
+        }
+
+        await Assert.That(threw).IsTrue();
+        await Assert.That(message).IsEqualTo("The --output-dir option can only be used with --write-new.");
+    }
+
+    [Test]
     public async Task Parse_ThrowsForUnknownOption()
     {
         var threw = false;

@@ -6,6 +6,7 @@ namespace xmlssort.Tests;
 public class XmlSortApplicationTests
 {
     private static readonly Lock ConsoleLock = new();
+    private static readonly Lock WorkingDirectoryLock = new();
 
     [Test]
     public async Task Run_WritesHelpToStdOut()
@@ -224,6 +225,172 @@ public class XmlSortApplicationTests
     }
 
     [Test]
+    public async Task Run_SortsXmlFilesFromDirectoryRecursivelyInPlace()
+    {
+        var tempDirectory = Directory.CreateTempSubdirectory();
+
+        try
+        {
+            var nestedDirectory = Directory.CreateDirectory(Path.Combine(tempDirectory.FullName, "nested"));
+            var rootPath = Path.Combine(tempDirectory.FullName, "a.xml");
+            var nestedPath = Path.Combine(nestedDirectory.FullName, "b.xml");
+
+            await File.WriteAllTextAsync(rootPath, "<Catalog><Books><Book id=\"2\" /><Book id=\"1\" /></Books></Catalog>");
+            await File.WriteAllTextAsync(nestedPath, "<Catalog><Books><Book id=\"4\" /><Book id=\"3\" /></Books></Catalog>");
+
+            var exitCode = new XmlSortApplication().Run([tempDirectory.FullName, "--sort", "/Catalog/Books/Book:@id", "--in-place"]);
+
+            var rootOutput = XDocument.Parse(await File.ReadAllTextAsync(rootPath));
+            var nestedOutput = XDocument.Parse(await File.ReadAllTextAsync(nestedPath));
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(string.Join("|", rootOutput.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("1|2");
+            await Assert.That(string.Join("|", nestedOutput.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("3|4");
+        }
+        finally
+        {
+            tempDirectory.Delete(true);
+        }
+    }
+
+    [Test]
+    public async Task Run_SortsMatchingGlobInputsInPlace()
+    {
+        var tempDirectory = Directory.CreateTempSubdirectory();
+
+        try
+        {
+            var firstPath = Path.Combine(tempDirectory.FullName, "a.xml");
+            var secondPath = Path.Combine(tempDirectory.FullName, "b.xml");
+
+            await File.WriteAllTextAsync(firstPath, "<Catalog><Books><Book id=\"2\" /><Book id=\"1\" /></Books></Catalog>");
+            await File.WriteAllTextAsync(secondPath, "<Catalog><Books><Book id=\"4\" /><Book id=\"3\" /></Books></Catalog>");
+
+            int exitCode;
+
+            lock (WorkingDirectoryLock)
+            {
+                using var currentDirectoryScope = new CurrentDirectoryScope(tempDirectory.FullName);
+                exitCode = new XmlSortApplication().Run(["*.xml", "--sort", "/Catalog/Books/Book:@id", "--in-place"]);
+            }
+
+            var firstOutput = XDocument.Parse(await File.ReadAllTextAsync(firstPath));
+            var secondOutput = XDocument.Parse(await File.ReadAllTextAsync(secondPath));
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(string.Join("|", firstOutput.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("1|2");
+            await Assert.That(string.Join("|", secondOutput.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("3|4");
+        }
+        finally
+        {
+            tempDirectory.Delete(true);
+        }
+    }
+
+    [Test]
+    public async Task Run_WritesDirectoryInputToDifferentOutputDirectoryPreservingStructure()
+    {
+        var tempDirectory = Directory.CreateTempSubdirectory();
+
+        try
+        {
+            var inputDirectory = Directory.CreateDirectory(Path.Combine(tempDirectory.FullName, "input"));
+            var nestedInputDirectory = Directory.CreateDirectory(Path.Combine(inputDirectory.FullName, "nested"));
+            var outputDirectory = Path.Combine(tempDirectory.FullName, "output");
+            var rootInputPath = Path.Combine(inputDirectory.FullName, "a.xml");
+            var nestedInputPath = Path.Combine(nestedInputDirectory.FullName, "b.xml");
+            var rootOutputPath = Path.Combine(outputDirectory, "a.sorted.xml");
+            var nestedOutputPath = Path.Combine(outputDirectory, "nested", "b.sorted.xml");
+
+            await File.WriteAllTextAsync(rootInputPath, "<Catalog><Books><Book id=\"2\" /><Book id=\"1\" /></Books></Catalog>");
+            await File.WriteAllTextAsync(nestedInputPath, "<Catalog><Books><Book id=\"4\" /><Book id=\"3\" /></Books></Catalog>");
+
+            var exitCode = new XmlSortApplication().Run([inputDirectory.FullName, "--sort", "/Catalog/Books/Book:@id", "--write-new", "--output-dir", outputDirectory]);
+
+            var rootOutput = XDocument.Parse(await File.ReadAllTextAsync(rootOutputPath));
+            var nestedOutput = XDocument.Parse(await File.ReadAllTextAsync(nestedOutputPath));
+            var rootInput = XDocument.Parse(await File.ReadAllTextAsync(rootInputPath));
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(File.Exists(rootOutputPath)).IsTrue();
+            await Assert.That(File.Exists(nestedOutputPath)).IsTrue();
+            await Assert.That(string.Join("|", rootOutput.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("1|2");
+            await Assert.That(string.Join("|", nestedOutput.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("3|4");
+            await Assert.That(string.Join("|", rootInput.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("2|1");
+        }
+        finally
+        {
+            tempDirectory.Delete(true);
+        }
+    }
+
+    [Test]
+    public async Task Run_WritesSortedCopiesForMatchingGlobInputs()
+    {
+        var tempDirectory = Directory.CreateTempSubdirectory();
+
+        try
+        {
+            var inputPath = Path.Combine(tempDirectory.FullName, "books.xml");
+            var outputPath = Path.Combine(tempDirectory.FullName, "books.ordered.xml");
+
+            await File.WriteAllTextAsync(inputPath, "<Catalog><Books><Book id=\"2\" /><Book id=\"1\" /></Books></Catalog>");
+
+            int exitCode;
+
+            lock (WorkingDirectoryLock)
+            {
+                using var currentDirectoryScope = new CurrentDirectoryScope(tempDirectory.FullName);
+                exitCode = new XmlSortApplication().Run(["*.xml", "--sort", "/Catalog/Books/Book:@id", "--write-new", "--suffix", ".ordered"]);
+            }
+
+            var original = XDocument.Parse(await File.ReadAllTextAsync(inputPath));
+            var writtenCopy = XDocument.Parse(await File.ReadAllTextAsync(outputPath));
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(string.Join("|", original.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("2|1");
+            await Assert.That(string.Join("|", writtenCopy.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("1|2");
+        }
+        finally
+        {
+            tempDirectory.Delete(true);
+        }
+    }
+
+    [Test]
+    public async Task Run_RenamesSortedGlobInputsWithSuffix()
+    {
+        var tempDirectory = Directory.CreateTempSubdirectory();
+
+        try
+        {
+            var inputPath = Path.Combine(tempDirectory.FullName, "books.xml");
+            var renamedPath = Path.Combine(tempDirectory.FullName, "books.sorted.xml");
+
+            await File.WriteAllTextAsync(inputPath, "<Catalog><Books><Book id=\"2\" /><Book id=\"1\" /></Books></Catalog>");
+
+            int exitCode;
+
+            lock (WorkingDirectoryLock)
+            {
+                using var currentDirectoryScope = new CurrentDirectoryScope(tempDirectory.FullName);
+                exitCode = new XmlSortApplication().Run(["*.xml", "--sort", "/Catalog/Books/Book:@id", "--rename"]);
+            }
+
+            var renamedOutput = XDocument.Parse(await File.ReadAllTextAsync(renamedPath));
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(File.Exists(inputPath)).IsFalse();
+            await Assert.That(File.Exists(renamedPath)).IsTrue();
+            await Assert.That(string.Join("|", renamedOutput.Root!.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value))).IsEqualTo("1|2");
+        }
+        finally
+        {
+            tempDirectory.Delete(true);
+        }
+    }
+
+    [Test]
     public async Task Run_ReturnsFailureForInvalidXml()
     {
         int exitCode;
@@ -273,6 +440,22 @@ public class XmlSortApplicationTests
             Console.SetError(_originalError);
             _stdoutWriter.Dispose();
             _stderrWriter.Dispose();
+        }
+    }
+
+    private sealed class CurrentDirectoryScope : IDisposable
+    {
+        private readonly string _originalPath;
+
+        public CurrentDirectoryScope(string path)
+        {
+            _originalPath = Directory.GetCurrentDirectory();
+            Directory.SetCurrentDirectory(path);
+        }
+
+        public void Dispose()
+        {
+            Directory.SetCurrentDirectory(_originalPath);
         }
     }
 
