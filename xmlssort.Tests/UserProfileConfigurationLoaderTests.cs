@@ -1,5 +1,8 @@
 namespace xmlssort.Tests;
 
+// NotInParallel prevents tests that mutate the process-wide XMLSSORT_CONFIG_PATH
+// environment variable from racing with each other or with tests in other classes.
+[NotInParallel]
 public class UserProfileConfigurationLoaderTests
 {
     [Test]
