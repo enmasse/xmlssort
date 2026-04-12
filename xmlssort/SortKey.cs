@@ -1,4 +1,4 @@
-internal sealed record SortKey(string Name, SortKeyKind Kind, SortDirection Direction)
+internal sealed record SortKey(string Name, SortKeyKind Kind, SortDirection Direction, bool Numeric)
 {
     public static SortKey Parse(string value)
     {
@@ -9,24 +9,43 @@ internal sealed record SortKey(string Name, SortKeyKind Kind, SortDirection Dire
 
         var trimmed = value.Trim();
         var direction = SortDirection.Ascending;
+        var numeric = false;
 
-        if (trimmed.EndsWith(" desc", StringComparison.OrdinalIgnoreCase))
+        var parts = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var name = parts[0];
+
+        for (var i = 1; i < parts.Length; i++)
         {
-            direction = SortDirection.Descending;
-            trimmed = trimmed[..^5].TrimEnd();
-        }
-        else if (trimmed.EndsWith(" asc", StringComparison.OrdinalIgnoreCase))
-        {
-            trimmed = trimmed[..^4].TrimEnd();
+            var modifier = parts[i];
+
+            if (string.Equals(modifier, "desc", StringComparison.OrdinalIgnoreCase))
+            {
+                direction = SortDirection.Descending;
+                continue;
+            }
+
+            if (string.Equals(modifier, "asc", StringComparison.OrdinalIgnoreCase))
+            {
+                direction = SortDirection.Ascending;
+                continue;
+            }
+
+            if (string.Equals(modifier, "numeric", StringComparison.OrdinalIgnoreCase))
+            {
+                numeric = true;
+                continue;
+            }
+
+            throw new ArgumentException($"Invalid sort key '{value}'. Unknown modifier '{modifier}'.");
         }
 
-        if (string.IsNullOrWhiteSpace(trimmed))
+        if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException($"Invalid sort key '{value}'.");
         }
 
-        return trimmed[0] == '@'
-            ? new SortKey(trimmed[1..], SortKeyKind.Attribute, direction)
-            : new SortKey(trimmed, SortKeyKind.Element, direction);
+        return name[0] == '@'
+            ? new SortKey(name[1..], SortKeyKind.Attribute, direction, numeric)
+            : new SortKey(name, SortKeyKind.Element, direction, numeric);
     }
 }

@@ -31,6 +31,15 @@ internal sealed record SortRule(IReadOnlyList<string> PathSegments, IReadOnlyLis
             throw new ArgumentException($"Invalid sort path '{path}'. The path must include a root and target element.");
         }
 
+        foreach (var segment in pathSegments)
+        {
+            if (segment.Contains(XmlPathPatternMatcher.RecursiveWildcard, StringComparison.Ordinal)
+                && segment != XmlPathPatternMatcher.RecursiveWildcard)
+            {
+                throw new ArgumentException($"Invalid sort path segment '{segment}'. The recursive wildcard '**' must be used as its own segment.");
+            }
+        }
+
         var keys = keyExpression
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(SortKey.Parse)

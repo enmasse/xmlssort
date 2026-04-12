@@ -24,6 +24,24 @@ public class EmbeddedJsonFormatterTests
     }
 
     [Test]
+    public async Task Apply_FormatsValidJsonInLeafElementValuesAfterLeadingWhitespace()
+    {
+        var document = XDocument.Parse(
+            """
+            <Root>
+              <Payload>  {"name":"Alice","roles":["admin","user"]}</Payload>
+            </Root>
+            """);
+
+        EmbeddedJsonFormatter.Apply(document);
+
+        var value = document.Root!.Element("Payload")!.Value;
+
+        await Assert.That(value.Contains(Environment.NewLine, StringComparison.Ordinal)).IsTrue();
+        await Assert.That(value.Contains("\"name\": \"Alice\"", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
     public async Task Apply_LeavesInvalidJsonUnchanged()
     {
         const string invalidJson = "{not-json}";
@@ -32,6 +50,24 @@ public class EmbeddedJsonFormatterTests
         EmbeddedJsonFormatter.Apply(document);
 
         await Assert.That(document.Root!.Element("Payload")!.Value).IsEqualTo(invalidJson);
+    }
+
+    [Test]
+    public async Task Apply_PreservesVisibleUtf8CharactersWhenFormattingJson()
+    {
+        var document = XDocument.Parse(
+            """
+            <Root>
+              <Payload>{"text":"Värmepump åäö"}</Payload>
+            </Root>
+            """);
+
+        EmbeddedJsonFormatter.Apply(document);
+
+        var value = document.Root!.Element("Payload")!.Value;
+
+        await Assert.That(value.Contains("Värmepump åäö", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(value.Contains("\\u00", StringComparison.Ordinal)).IsFalse();
     }
 
     [Test]
@@ -65,5 +101,24 @@ public class EmbeddedJsonFormatterTests
         EmbeddedJsonFormatter.Apply(document);
 
         await Assert.That(document.Root!.Element("Payload")!.Value).IsEqualTo(original);
+    }
+
+    [Test]
+    public async Task Apply_SkipsLeafValuesThatDoNotStartWithJsonContainer()
+    {
+        var document = XDocument.Parse(
+            """
+            <Root>
+              <Boolean>true</Boolean>
+              <Number>123</Number>
+              <String>&quot;Alice&quot;</String>
+            </Root>
+            """);
+
+        EmbeddedJsonFormatter.Apply(document);
+
+        await Assert.That(document.Root!.Element("Boolean")!.Value).IsEqualTo("true");
+        await Assert.That(document.Root!.Element("Number")!.Value).IsEqualTo("123");
+        await Assert.That(document.Root!.Element("String")!.Value).IsEqualTo("\"Alice\"");
     }
 }

@@ -34,6 +34,41 @@ public class CommandLineParsingTests
     }
 
     [Test]
+    public async Task Parse_SupportsNumericKeysForElementsAndAttributes()
+    {
+        var rule = SortRule.Parse("/Catalog/Books/Book:@rank numeric desc,Price numeric");
+
+        await Assert.That(rule.Keys[0].Name).IsEqualTo("rank");
+        await Assert.That(rule.Keys[0].Kind).IsEqualTo(SortKeyKind.Attribute);
+        await Assert.That(rule.Keys[0].Numeric).IsTrue();
+        await Assert.That(rule.Keys[0].Direction).IsEqualTo(SortDirection.Descending);
+        await Assert.That(rule.Keys[1].Name).IsEqualTo("Price");
+        await Assert.That(rule.Keys[1].Kind).IsEqualTo(SortKeyKind.Element);
+        await Assert.That(rule.Keys[1].Numeric).IsTrue();
+        await Assert.That(rule.Keys[1].Direction).IsEqualTo(SortDirection.Ascending);
+    }
+
+    [Test]
+    public async Task Parse_AllowsDirectionModifierBeforeNumericModifier()
+    {
+        var key = SortKey.Parse("@rank desc numeric");
+
+        await Assert.That(key.Name).IsEqualTo("rank");
+        await Assert.That(key.Kind).IsEqualTo(SortKeyKind.Attribute);
+        await Assert.That(key.Direction).IsEqualTo(SortDirection.Descending);
+        await Assert.That(key.Numeric).IsTrue();
+    }
+
+    [Test]
+    public async Task Parse_SupportsWildcardPathSegments()
+    {
+        var rule = SortRule.Parse("/operations/add/product/**/related_items__*/item:id");
+
+        await Assert.That(string.Join("/", rule.PathSegments)).IsEqualTo("operations/add/product/**/related_items__*/item");
+        await Assert.That(rule.Keys[0].Name).IsEqualTo("id");
+    }
+
+    [Test]
     public async Task Parse_ReadsGlobalFormatJsonFlag()
     {
         var options = CommandLineOptions.Parse(["input.xml", "--format-json"]);
@@ -195,6 +230,26 @@ public class CommandLineParsingTests
     }
 
     [Test]
+    public async Task SortRule_Parse_ThrowsForEmbeddedRecursiveWildcardSegment()
+    {
+        var threw = false;
+        var message = string.Empty;
+
+        try
+        {
+            SortRule.Parse("/operations/add/product/related**items/item:id");
+        }
+        catch (ArgumentException ex)
+        {
+            threw = true;
+            message = ex.Message;
+        }
+
+        await Assert.That(threw).IsTrue();
+        await Assert.That(message).IsEqualTo("Invalid sort path segment 'related**items'. The recursive wildcard '**' must be used as its own segment.");
+    }
+
+    [Test]
     public async Task SortKey_Parse_ThrowsForWhitespaceOnlyKey()
     {
         var threw = false;
@@ -212,5 +267,25 @@ public class CommandLineParsingTests
 
         await Assert.That(threw).IsTrue();
         await Assert.That(message).IsEqualTo("Sort keys cannot be empty.");
+    }
+
+    [Test]
+    public async Task SortKey_Parse_ThrowsForUnknownModifier()
+    {
+        var threw = false;
+        var message = string.Empty;
+
+        try
+        {
+            SortKey.Parse("Price natural");
+        }
+        catch (ArgumentException ex)
+        {
+            threw = true;
+            message = ex.Message;
+        }
+
+        await Assert.That(threw).IsTrue();
+        await Assert.That(message).IsEqualTo("Invalid sort key 'Price natural'. Unknown modifier 'natural'.");
     }
 }

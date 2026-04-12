@@ -102,6 +102,137 @@ public class XmlSorterTests
     }
 
     [Test]
+    public async Task Apply_SortsNumericElementValuesNumerically()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book><Order>10</Order></Book>
+                <Book><Order>2</Order></Book>
+                <Book><Order>100</Order></Book>
+              </Books>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:Order numeric")]);
+
+        var orders = document.Root!
+            .Element("Books")!
+            .Elements("Book")
+            .Select(book => book.Element("Order")!.Value)
+            .ToArray();
+
+        await Assert.That(string.Join("|", orders)).IsEqualTo("2|10|100");
+    }
+
+    [Test]
+    public async Task Apply_SortsNumericAttributeValuesNumerically()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book rank="10"><Title>Gamma</Title></Book>
+                <Book rank="2"><Title>Beta</Title></Book>
+                <Book rank="100"><Title>Alpha</Title></Book>
+              </Books>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:@rank numeric")]);
+
+        var ranks = document.Root!
+            .Element("Books")!
+            .Elements("Book")
+            .Select(book => book.Attribute("rank")!.Value)
+            .ToArray();
+
+        await Assert.That(string.Join("|", ranks)).IsEqualTo("2|10|100");
+    }
+
+    [Test]
+    public async Task Apply_UsesNumericKeyBeforeStringTieBreaker()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book><Order>10</Order><Title>Zulu</Title></Book>
+                <Book><Order>2</Order><Title>Zulu</Title></Book>
+                <Book><Order>10</Order><Title>Alpha</Title></Book>
+              </Books>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:Order numeric,Title")]);
+
+        var values = document.Root!
+            .Element("Books")!
+            .Elements("Book")
+            .Select(book => $"{book.Element("Order")!.Value}:{book.Element("Title")!.Value}")
+            .ToArray();
+
+        await Assert.That(string.Join("|", values)).IsEqualTo("2:Zulu|10:Alpha|10:Zulu");
+    }
+
+    [Test]
+    public async Task Apply_SortsNumericElementValuesInDescendingOrder()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book><Order>10</Order></Book>
+                <Book><Order>2</Order></Book>
+                <Book><Order>100</Order></Book>
+              </Books>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:Order numeric desc")]);
+
+        var orders = document.Root!
+            .Element("Books")!
+            .Elements("Book")
+            .Select(book => book.Element("Order")!.Value)
+            .ToArray();
+
+        await Assert.That(string.Join("|", orders)).IsEqualTo("100|10|2");
+    }
+
+    [Test]
+    public async Task Apply_PlacesNumericValuesBeforeNonNumericValuesWhenSortingNumerically()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book><Order>unknown</Order></Book>
+                <Book><Order>10</Order></Book>
+                <Book><Order>2</Order></Book>
+                <Book><Order>n/a</Order></Book>
+              </Books>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:Order numeric")]);
+
+        var orders = document.Root!
+            .Element("Books")!
+            .Elements("Book")
+            .Select(book => book.Element("Order")!.Value)
+            .ToArray();
+
+        await Assert.That(string.Join("|", orders)).IsEqualTo("2|10|n/a|unknown");
+    }
+
+    [Test]
     public async Task Apply_PreservesCommentsWhileSortingSiblings()
     {
         var document = XDocument.Parse(
@@ -173,23 +304,196 @@ public class XmlSorterTests
     }
 
     [Test]
-    public async Task Apply_ThrowsForRootMismatch()
+    public async Task Apply_SortsNestedWildcardContainersByIdWithinEachProduct()
+    {
+        var document = XDocument.Parse(
+            """
+            <operations>
+              <add>
+                <product>
+                  <product_key>pk-2</product_key>
+                  <related_items__alpha>
+                    <item><id>210</id></item>
+                    <item><id>110</id></item>
+                  </related_items__alpha>
+                  <related_items__beta>
+                    <item><id>420</id></item>
+                    <item><id>410</id></item>
+                  </related_items__beta>
+                </product>
+                <product>
+                  <product_key>pk-1</product_key>
+                  <related_items__alpha>
+                    <item><id>320</id></item>
+                    <item><id>120</id></item>
+                  </related_items__alpha>
+                </product>
+              </add>
+            </operations>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document,
+        [
+            SortRule.Parse("/operations/add/product/related_items__alpha/item:id"),
+            SortRule.Parse("/operations/add/product/related_items__beta/item:id")
+        ]);
+
+        var products = document.Root!
+            .Element("add")!
+            .Elements("product")
+            .ToArray();
+
+        var productKeys = products
+            .Select(product => product.Element("product_key")!.Value)
+            .ToArray();
+
+        var alphaIds = products
+            .Select(product => string.Join(",", product.Element("related_items__alpha")!.Elements("item").Select(item => item.Element("id")!.Value)))
+            .ToArray();
+
+        var betaIds = products
+            .Select(product => product.Element("related_items__beta") is null
+                ? string.Empty
+                : string.Join(",", product.Element("related_items__beta")!.Elements("item").Select(item => item.Element("id")!.Value)))
+            .ToArray();
+
+        await Assert.That(string.Join("|", productKeys)).IsEqualTo("pk-2|pk-1");
+        await Assert.That(string.Join("|", alphaIds)).IsEqualTo("110,210|120,320");
+        await Assert.That(string.Join("|", betaIds)).IsEqualTo("410,420|");
+    }
+
+    [Test]
+    public async Task Apply_SortsWildcardContainersByIdWithinEachVariant()
+    {
+        var document = XDocument.Parse(
+            """
+            <operations>
+              <add>
+                <product>
+                  <product_key>pk-1</product_key>
+                  <variants>
+                    <variant>
+                      <id>v-2</id>
+                      <related_items__alpha>
+                        <item><id>320</id></item>
+                        <item><id>120</id></item>
+                        <item><id>220</id></item>
+                      </related_items__alpha>
+                    </variant>
+                    <variant>
+                      <id>v-1</id>
+                      <related_items__beta>
+                        <item><id>430</id></item>
+                        <item><id>130</id></item>
+                        <item><id>230</id></item>
+                      </related_items__beta>
+                    </variant>
+                  </variants>
+                </product>
+              </add>
+            </operations>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document,
+        [
+            SortRule.Parse("/operations/add/product/variants/variant/related_items__alpha/item:id"),
+            SortRule.Parse("/operations/add/product/variants/variant/related_items__beta/item:id")
+        ]);
+
+        var variants = document.Root!
+            .Element("add")!
+            .Element("product")!
+            .Element("variants")!
+            .Elements("variant")
+            .ToArray();
+
+        var alphaIds = string.Join(",", variants[0].Element("related_items__alpha")!.Elements("item").Select(item => item.Element("id")!.Value));
+        var betaIds = string.Join(",", variants[1].Element("related_items__beta")!.Elements("item").Select(item => item.Element("id")!.Value));
+
+        await Assert.That(alphaIds).IsEqualTo("120,220,320");
+        await Assert.That(betaIds).IsEqualTo("130,230,430");
+    }
+
+    [Test]
+    public async Task Apply_SortsWildcardContainersByIdWithSingleWildcardRule()
+    {
+        var document = XDocument.Parse(
+            """
+            <operations>
+              <add>
+                <product>
+                  <product_key>pk-1</product_key>
+                  <related_items__alpha>
+                    <item><id>210</id></item>
+                    <item><id>110</id></item>
+                  </related_items__alpha>
+                  <variants>
+                    <variant>
+                      <id>v-1</id>
+                      <related_items__beta>
+                        <item><id>430</id></item>
+                        <item><id>130</id></item>
+                        <item><id>230</id></item>
+                      </related_items__beta>
+                    </variant>
+                  </variants>
+                </product>
+              </add>
+            </operations>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/operations/add/product/**/related_items__*/item:id")]);
+
+        var product = document.Root!
+            .Element("add")!
+            .Element("product")!;
+
+        var productItems = string.Join(",", product.Element("related_items__alpha")!.Elements("item").Select(item => item.Element("id")!.Value));
+        var variantItems = string.Join(",", product.Element("variants")!.Element("variant")!.Element("related_items__beta")!.Elements("item").Select(item => item.Element("id")!.Value));
+
+        await Assert.That(productItems).IsEqualTo("110,210");
+        await Assert.That(variantItems).IsEqualTo("130,230,430");
+    }
+
+    [Test]
+    public async Task Apply_IgnoresNonMatchingRulesWhenAnotherRuleApplies()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book id="2"><Title>Beta</Title></Book>
+                <Book id="1"><Title>Alpha</Title></Book>
+              </Books>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document,
+        [
+            SortRule.Parse("/Library/Sections/Section:Name"),
+            SortRule.Parse("/Catalog/Books/Book:@id")
+        ]);
+
+        var ids = document.Root!
+            .Element("Books")!
+            .Elements("Book")
+            .Select(book => book.Attribute("id")!.Value)
+            .ToArray();
+
+        await Assert.That(string.Join("|", ids)).IsEqualTo("1|2");
+    }
+
+    [Test]
+    public async Task Apply_IgnoresRootMismatchWhenNoRulesApply()
     {
         var document = XDocument.Parse("<Library><Sections /></Library>");
-        var threw = false;
-        var message = string.Empty;
 
-        try
-        {
-            XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:@id")]);
-        }
-        catch (InvalidOperationException ex)
-        {
-            threw = true;
-            message = ex.Message;
-        }
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:@id")]);
 
-        await Assert.That(threw).IsTrue();
-        await Assert.That(message.Contains("does not match the document root", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(document.Root!.Name.LocalName).IsEqualTo("Library");
     }
 }

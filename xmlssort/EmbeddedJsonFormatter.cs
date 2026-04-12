@@ -1,4 +1,6 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Unicode;
 using System.Xml.Linq;
 
 internal static class EmbeddedJsonFormatter
@@ -41,7 +43,12 @@ internal static class EmbeddedJsonFormatter
         {
             return;
         }
- 
+
+        if (!StartsWithJsonContainer(value))
+        {
+            return;
+        }
+
         if (!TryFormatJson(value, out var formattedJson))
         {
             return;
@@ -56,6 +63,13 @@ internal static class EmbeddedJsonFormatter
         element.Value = formattedJson;
     }
 
+    private static bool StartsWithJsonContainer(string value)
+    {
+        var trimmedValue = value.AsSpan().TrimStart();
+
+        return !trimmedValue.IsEmpty && (trimmedValue[0] == '{' || trimmedValue[0] == '[');
+    }
+
     private static bool TryFormatJson(string value, out string formattedJson)
     {
         try
@@ -63,7 +77,8 @@ internal static class EmbeddedJsonFormatter
             using var document = JsonDocument.Parse(value);
             formattedJson = JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions
             {
-                WriteIndented = true
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
             });
             return true;
         }

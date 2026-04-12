@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml.Linq;
 
 internal static class XmlSorter
@@ -9,50 +10,91 @@ internal static class XmlSorter
             throw new ArgumentException("The XML document does not have a root element.");
         }
 
+        Apply(document.Root, CompileRules(rules), []);
+    }
+
+    internal static CompiledSortRule[] CompileRules(IReadOnlyList<SortRule> rules)
+    {
+        var compiledRules = new CompiledSortRule[rules.Count];
+
+        for (var index = 0; index < rules.Count; index++)
+        {
+            compiledRules[index] = new CompiledSortRule(rules[index]);
+        }
+
+        return compiledRules;
+    }
+
+    internal static void Apply(XElement root, IReadOnlyList<CompiledSortRule> rules, IReadOnlyList<string> pathPrefix)
+    {
         foreach (var rule in rules)
         {
-            ApplyRule(document.Root, rule);
+            ApplyRule(root, rule, pathPrefix);
         }
     }
 
-    private static void ApplyRule(XElement root, SortRule rule)
+    private static void ApplyRule(XElement root, CompiledSortRule rule, IReadOnlyList<string> pathPrefix)
     {
-        if (!string.Equals(root.Name.LocalName, rule.PathSegments[0], StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"Sort path '/{string.Join('/', rule.PathSegments)}' does not match the document root '{root.Name.LocalName}'.");
-        }
+        var topLevelParents = new List<XElement>();
+        var currentPath = new List<string>(pathPrefix.Count + 8);
+        currentPath.AddRange(pathPrefix);
 
-        IEnumerable<XElement> parents = [root];
+        CollectTopLevelParents(root, rule.ParentPathMatcher, false, currentPath, topLevelParents);
 
-        for (var i = 1; i < rule.PathSegments.Count - 1; i++)
+        foreach (var parent in topLevelParents)
         {
-            var segment = rule.PathSegments[i];
-            parents = parents.SelectMany(parent => parent.Elements().Where(child => string.Equals(child.Name.LocalName, segment, StringComparison.Ordinal)));
-        }
-
-        foreach (var parent in parents)
-        {
-            SortChildrenRecursively(parent, rule.PathSegments[^2], rule.TargetElementName, rule.Keys);
+            SortChildrenRecursively(parent, rule.ParentMatcher, rule.TargetMatcher, rule.Keys);
         }
     }
 
-    private static void SortChildrenRecursively(XElement current, string parentElementName, string targetElementName, IReadOnlyList<SortKey> keys)
+    private static void CollectTopLevelParents(
+        XElement current,
+        XmlPathPatternMatcher.PathMatcher parentPathMatcher,
+        bool isWithinMatchedParent,
+        List<string> currentPath,
+        List<XElement> topLevelParents)
     {
-        if (string.Equals(current.Name.LocalName, parentElementName, StringComparison.Ordinal))
+        currentPath.Add(current.Name.LocalName);
+
+        var isMatchedParent = parentPathMatcher.IsMatch(currentPath);
+
+        if (isMatchedParent && !isWithinMatchedParent)
         {
-            SortChildren(current, targetElementName, keys);
+            topLevelParents.Add(current);
+            currentPath.RemoveAt(currentPath.Count - 1);
+            return;
+        }
+
+        foreach (var child in current.Elements())
+        {
+            CollectTopLevelParents(child, parentPathMatcher, isWithinMatchedParent, currentPath, topLevelParents);
+        }
+
+        currentPath.RemoveAt(currentPath.Count - 1);
+    }
+
+    private static void SortChildrenRecursively(
+        XElement current,
+        XmlPathPatternMatcher.SegmentMatcher parentMatcher,
+        XmlPathPatternMatcher.SegmentMatcher targetMatcher,
+        IReadOnlyList<SortKey> keys)
+    {
+        if (parentMatcher.IsMatch(current.Name.LocalName))
+        {
+            SortChildren(current, targetMatcher, keys);
         }
 
         foreach (var child in current.Elements().ToList())
         {
-            SortChildrenRecursively(child, parentElementName, targetElementName, keys);
+            SortChildrenRecursively(child, parentMatcher, targetMatcher, keys);
         }
     }
 
-    private static void SortChildren(XElement parent, string targetElementName, IReadOnlyList<SortKey> keys)
+    private static void SortChildren(XElement parent, XmlPathPatternMatcher.SegmentMatcher targetMatcher, IReadOnlyList<SortKey> keys)
     {
+        var targetMatchCache = new Dictionary<string, bool>(StringComparer.Ordinal);
         var targetElements = parent.Elements()
-            .Where(element => string.Equals(element.Name.LocalName, targetElementName, StringComparison.Ordinal))
+            .Where(element => IsTargetElementMatch(element, targetMatcher, targetMatchCache))
             .ToList();
 
         if (targetElements.Count < 2)
@@ -60,52 +102,97 @@ internal static class XmlSorter
             return;
         }
 
-        var sortedTargets = new Queue<XElement>(
-            SortElements(targetElements, keys)
-                .Select(element => new XElement(element)));
+        var sortedTargets = SortElements(targetElements, keys).ToArray();
 
-        var replacementNodes = new List<XNode>();
-
-        foreach (var node in parent.Nodes())
+        if (targetElements.SequenceEqual(sortedTargets))
         {
-            if (node is XElement element && string.Equals(element.Name.LocalName, targetElementName, StringComparison.Ordinal))
-            {
-                replacementNodes.Add(sortedTargets.Dequeue());
-                continue;
-            }
-
-            replacementNodes.Add(CloneNode(node));
+            return;
         }
 
-        parent.ReplaceNodes(replacementNodes);
+        for (var targetIndex = 0; targetIndex < targetElements.Count; targetIndex++)
+        {
+            targetElements[targetIndex].ReplaceWith(new XElement(sortedTargets[targetIndex]));
+        }
+    }
+
+    private static bool IsTargetElementMatch(
+        XElement element,
+        XmlPathPatternMatcher.SegmentMatcher targetMatcher,
+        Dictionary<string, bool> targetMatchCache)
+    {
+        var localName = element.Name.LocalName;
+
+        if (targetMatchCache.TryGetValue(localName, out var isMatch))
+        {
+            return isMatch;
+        }
+
+        isMatch = targetMatcher.IsMatch(localName);
+        targetMatchCache.Add(localName, isMatch);
+        return isMatch;
     }
 
     private static IEnumerable<XElement> SortElements(IReadOnlyList<XElement> elements, IReadOnlyList<SortKey> keys)
     {
-        IOrderedEnumerable<XElement>? ordered = null;
+        var sortableElements = CreateSortableElements(elements, keys);
+        IOrderedEnumerable<SortableElement>? ordered = null;
 
-        foreach (var key in keys)
+        for (var keyIndex = 0; keyIndex < keys.Count; keyIndex++)
         {
+            var comparer = new ElementSortKeyComparer(keys[keyIndex], keyIndex);
             ordered = ordered is null
-                ? ApplyPrimaryOrdering(elements, key)
-                : ApplySecondaryOrdering(ordered, key);
+                ? sortableElements.OrderBy(element => element, comparer)
+                : ordered.ThenBy(element => element, comparer);
         }
 
-        return ordered ?? elements.AsEnumerable();
+        var sortedElements = ordered is null ? sortableElements.AsEnumerable() : ordered;
+
+        return sortedElements.Select(element => element.Element);
     }
 
-    private static IOrderedEnumerable<XElement> ApplyPrimaryOrdering(IEnumerable<XElement> elements, SortKey key)
+    private static SortableElement[] CreateSortableElements(IReadOnlyList<XElement> elements, IReadOnlyList<SortKey> keys)
     {
-        return key.Direction == SortDirection.Ascending
-            ? elements.OrderBy(element => GetKeyValue(element, key), StringComparer.OrdinalIgnoreCase)
-            : elements.OrderByDescending(element => GetKeyValue(element, key), StringComparer.OrdinalIgnoreCase);
+        var sortableElements = new SortableElement[elements.Count];
+
+        for (var elementIndex = 0; elementIndex < elements.Count; elementIndex++)
+        {
+            var element = elements[elementIndex];
+            sortableElements[elementIndex] = new SortableElement(element, GetSortValues(element, keys));
+        }
+
+        return sortableElements;
     }
 
-    private static IOrderedEnumerable<XElement> ApplySecondaryOrdering(IOrderedEnumerable<XElement> elements, SortKey key)
+    internal static SortValue[] GetSortValues(XElement element, IReadOnlyList<SortKey> keys)
     {
-        return key.Direction == SortDirection.Ascending
-            ? elements.ThenBy(element => GetKeyValue(element, key), StringComparer.OrdinalIgnoreCase)
-            : elements.ThenByDescending(element => GetKeyValue(element, key), StringComparer.OrdinalIgnoreCase);
+        var values = new SortValue[keys.Count];
+
+        for (var keyIndex = 0; keyIndex < keys.Count; keyIndex++)
+        {
+            var key = keys[keyIndex];
+            var value = GetKeyValue(element, key);
+            var numericValue = 0m;
+            var isNumeric = key.Numeric && decimal.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out numericValue);
+
+            values[keyIndex] = new SortValue(value, numericValue, isNumeric);
+        }
+
+        return values;
+    }
+
+    internal static int CompareSortValues(SortValue[] leftValues, SortValue[] rightValues, IReadOnlyList<SortKey> keys)
+    {
+        for (var keyIndex = 0; keyIndex < keys.Count; keyIndex++)
+        {
+            var result = CompareSortValue(leftValues[keyIndex], rightValues[keyIndex], keys[keyIndex]);
+
+            if (result != 0)
+            {
+                return result;
+            }
+        }
+
+        return 0;
     }
 
     private static string GetKeyValue(XElement element, SortKey key)
@@ -115,17 +202,50 @@ internal static class XmlSorter
             : element.Elements().FirstOrDefault(child => string.Equals(child.Name.LocalName, key.Name, StringComparison.Ordinal))?.Value ?? string.Empty;
     }
 
-    private static XNode CloneNode(XNode node)
+    private sealed class ElementSortKeyComparer(SortKey key, int keyIndex) : IComparer<SortableElement>
     {
-        return node switch
+        public int Compare(SortableElement? left, SortableElement? right)
         {
-            XElement element => new XElement(element),
-            XCData cdata => new XCData(cdata.Value),
-            XText text => new XText(text.Value),
-            XComment comment => new XComment(comment.Value),
-            XProcessingInstruction instruction => new XProcessingInstruction(instruction.Target, instruction.Data),
-            XDocumentType documentType => new XDocumentType(documentType.Name, documentType.PublicId, documentType.SystemId, documentType.InternalSubset),
-            _ => throw new InvalidOperationException($"Unsupported XML node type '{node.GetType().Name}'.")
-        };
+            var leftValue = left is null ? SortValue.Empty : left.Values[keyIndex];
+            var rightValue = right is null ? SortValue.Empty : right.Values[keyIndex];
+
+            return CompareSortValue(leftValue, rightValue, key);
+        }
     }
+
+    private sealed record SortableElement(XElement Element, SortValue[] Values);
+
+    private static int CompareSortValue(SortValue leftValue, SortValue rightValue, SortKey key)
+    {
+        var result = key.Numeric
+            ? CompareNumericValues(leftValue, rightValue)
+            : StringComparer.OrdinalIgnoreCase.Compare(leftValue.Text, rightValue.Text);
+
+        return key.Direction == SortDirection.Descending ? -result : result;
+    }
+
+    private static int CompareNumericValues(SortValue leftValue, SortValue rightValue)
+    {
+        if (leftValue.IsNumeric && rightValue.IsNumeric)
+        {
+            var numericComparison = leftValue.NumericValue.CompareTo(rightValue.NumericValue);
+
+            return numericComparison != 0
+                ? numericComparison
+                : StringComparer.OrdinalIgnoreCase.Compare(leftValue.Text, rightValue.Text);
+        }
+
+        if (leftValue.IsNumeric != rightValue.IsNumeric)
+        {
+            return leftValue.IsNumeric ? -1 : 1;
+        }
+
+        return StringComparer.OrdinalIgnoreCase.Compare(leftValue.Text, rightValue.Text);
+    }
+
+    internal readonly record struct SortValue(string Text, decimal NumericValue, bool IsNumeric)
+    {
+        public static SortValue Empty { get; } = new(string.Empty, 0, false);
+    }
+
 }

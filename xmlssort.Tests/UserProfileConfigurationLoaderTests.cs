@@ -3,6 +3,36 @@ namespace xmlssort.Tests;
 public class UserProfileConfigurationLoaderTests
 {
     [Test]
+    public async Task GetDefaultConfigurationPath_UsesEnvironmentOverride()
+    {
+        var tempDirectory = Directory.CreateTempSubdirectory();
+
+        try
+        {
+            var configPath = Path.Combine(tempDirectory.FullName, "config.json");
+            using var environmentVariableScope = new EnvironmentVariableScope(UserProfileConfigurationLoader.ConfigurationPathEnvironmentVariableName, configPath);
+
+            var resolvedPath = UserProfileConfigurationLoader.GetDefaultConfigurationPath();
+
+            await Assert.That(resolvedPath).IsEqualTo(configPath);
+        }
+        finally
+        {
+            tempDirectory.Delete(true);
+        }
+    }
+
+    [Test]
+    public async Task Load_ReturnsNullWhenEnvironmentOverrideDisablesUserProfileLookup()
+    {
+        using var environmentVariableScope = new EnvironmentVariableScope(UserProfileConfigurationLoader.ConfigurationPathEnvironmentVariableName, string.Empty);
+
+        var configuration = new UserProfileConfigurationLoader().Load();
+
+        await Assert.That(configuration is null).IsTrue();
+    }
+
+    [Test]
     public async Task Load_ReturnsConfigurationFromJsonFile()
     {
         var tempDirectory = Directory.CreateTempSubdirectory();
@@ -123,6 +153,24 @@ public class UserProfileConfigurationLoaderTests
         finally
         {
             tempDirectory.Delete(true);
+        }
+    }
+
+    private sealed class EnvironmentVariableScope : IDisposable
+    {
+        private readonly string variableName;
+        private readonly string? originalValue;
+
+        public EnvironmentVariableScope(string variableName, string? value)
+        {
+            this.variableName = variableName;
+            originalValue = Environment.GetEnvironmentVariable(variableName);
+            Environment.SetEnvironmentVariable(variableName, value);
+        }
+
+        public void Dispose()
+        {
+            Environment.SetEnvironmentVariable(variableName, originalValue);
         }
     }
 }

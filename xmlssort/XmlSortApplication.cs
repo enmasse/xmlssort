@@ -37,9 +37,10 @@ internal sealed class XmlSortApplication(IUserConfigurationLoader? userConfigura
                 return 0;
             }
 
-            var input = ReadInput(inputPaths.Count == 1 && !inputPaths[0].IsStandardInput ? inputPaths[0].InputPath : null);
-            var document = ProcessDocument(input, options);
-            WriteOutput(document, options.OutputPath, options.FormatXml);
+            ProcessSingleInput(
+                inputPaths.Count == 1 && !inputPaths[0].IsStandardInput ? inputPaths[0].InputPath : null,
+                options.OutputPath,
+                options);
             return 0;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.Xml.XmlException)
@@ -49,21 +50,27 @@ internal sealed class XmlSortApplication(IUserConfigurationLoader? userConfigura
         }
     }
 
-    private static string ReadInput(string? inputPath)
+    private static XDocument LoadDocument(string? inputPath, CommandLineOptions options)
     {
         if (string.IsNullOrWhiteSpace(inputPath) || inputPath == "-")
         {
-            var stdin = Console.In.ReadToEnd();
-
-            if (string.IsNullOrWhiteSpace(stdin))
-            {
-                throw new ArgumentException("No XML input was provided. Supply a file path or pipe XML through stdin.");
-            }
-
-            return stdin;
+            return ProcessDocument(XDocument.Parse(ReadStandardInput(), LoadOptions.PreserveWhitespace), options);
         }
 
-        return File.ReadAllText(inputPath);
+        using var stream = File.OpenRead(inputPath);
+        return ProcessDocument(XDocument.Load(stream, LoadOptions.PreserveWhitespace), options);
+    }
+
+    private static string ReadStandardInput()
+    {
+        var stdin = Console.In.ReadToEnd();
+
+        if (string.IsNullOrWhiteSpace(stdin))
+        {
+            throw new ArgumentException("No XML input was provided. Supply a file path or pipe XML through stdin.");
+        }
+
+        return stdin;
     }
 
     private static void ProcessInputFiles(CommandLineOptions options, IReadOnlyList<InputFileMatch> inputPaths)
@@ -85,17 +92,15 @@ internal sealed class XmlSortApplication(IUserConfigurationLoader? userConfigura
                 throw new ArgumentException("The '-' input can only be used by itself without batch output options.");
             }
 
-            var document = ProcessDocument(File.ReadAllText(inputPath.InputPath), options);
-
             switch (options.BatchOutputMode)
             {
                 case BatchOutputMode.InPlace:
-                    WriteOutput(document, inputPath.InputPath, options.FormatXml);
+                    ProcessSingleInput(inputPath.InputPath, inputPath.InputPath, options);
                     break;
                 case BatchOutputMode.Rename:
                 {
                     var outputPath = BatchOutputPathResolver.ResolveSibling(inputPath.InputPath, options.Suffix!);
-                    WriteOutput(document, outputPath, options.FormatXml);
+                    ProcessSingleInput(inputPath.InputPath, outputPath, options);
                     File.Delete(inputPath.InputPath);
                     break;
                 }
@@ -104,17 +109,56 @@ internal sealed class XmlSortApplication(IUserConfigurationLoader? userConfigura
                     var outputPath = options.OutputDirectory is null
                         ? BatchOutputPathResolver.ResolveSibling(inputPath.InputPath, options.Suffix!)
                         : BatchOutputPathResolver.ResolveOutputDirectoryPath(inputPath, Path.GetFullPath(options.OutputDirectory), options.Suffix!);
-                    WriteOutput(document, outputPath, options.FormatXml);
+                    ProcessSingleInput(inputPath.InputPath, outputPath, options);
                     break;
                 }
             }
         }
     }
 
-    private static XDocument ProcessDocument(string input, CommandLineOptions options)
+    private static void ProcessSingleInput(string? inputPath, string? outputPath, CommandLineOptions options)
     {
-        var document = XDocument.Parse(input, LoadOptions.PreserveWhitespace);
+        if (XmlStreamingProcessor.CanProcess(options))
+        {
+            ProcessStreaming(inputPath, outputPath, options);
+            return;
+        }
 
+        var document = LoadDocument(inputPath, options);
+        WriteOutput(document, outputPath, options.FormatXml);
+    }
+
+    private static void ProcessStreaming(string? inputPath, string? outputPath, CommandLineOptions options)
+    {
+        if (!string.IsNullOrWhiteSpace(inputPath)
+            && !string.IsNullOrWhiteSpace(outputPath)
+            && string.Equals(Path.GetFullPath(inputPath), Path.GetFullPath(outputPath), StringComparison.OrdinalIgnoreCase))
+        {
+            var tempOutputPath = Path.Combine(
+                Path.GetDirectoryName(outputPath)!,
+                $".{Path.GetFileName(outputPath)}.{Guid.NewGuid():N}.tmp");
+
+            try
+            {
+                XmlStreamingProcessor.Process(inputPath, tempOutputPath, options);
+                File.Move(tempOutputPath, outputPath, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(tempOutputPath))
+                {
+                    File.Delete(tempOutputPath);
+                }
+            }
+
+            return;
+        }
+
+        XmlStreamingProcessor.Process(inputPath, outputPath, options);
+    }
+
+    private static XDocument ProcessDocument(XDocument document, CommandLineOptions options)
+    {
         XmlSorter.Apply(document, options.SortRules);
 
         if (options.FormatJson)

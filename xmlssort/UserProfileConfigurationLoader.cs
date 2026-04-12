@@ -3,6 +3,8 @@ using System.Text.Json.Serialization;
 
 internal sealed class UserProfileConfigurationLoader(string? configurationPath = null) : IUserConfigurationLoader
 {
+    internal const string ConfigurationPathEnvironmentVariableName = "XMLSSORT_CONFIG_PATH";
+
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         AllowTrailingCommas = true,
@@ -51,6 +53,13 @@ internal sealed class UserProfileConfigurationLoader(string? configurationPath =
 
     public static string? GetDefaultConfigurationPath()
     {
+        var configuredPath = Environment.GetEnvironmentVariable(ConfigurationPathEnvironmentVariableName);
+
+        if (configuredPath is not null)
+        {
+            return string.IsNullOrWhiteSpace(configuredPath) ? null : configuredPath;
+        }
+
         var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
         if (string.IsNullOrWhiteSpace(userProfilePath))

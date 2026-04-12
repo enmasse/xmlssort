@@ -22,9 +22,16 @@ internal static class CommandLineHelp
         Sort rule format:
           /Root/Parent/Item:key1,key2
 
+        Path wildcards:
+          *         Match characters within a single path segment
+          **        Match zero or more whole path segments
+          Example   /operations/add/product/**/related_items__*/item:id
+
         Keys:
           Name       Sort by a direct child element named Name
           @id        Sort by an attribute named id
+          Price numeric Sort numerically by a direct child element named Price
+          @rank numeric desc Sort numerically in descending order by an attribute named rank
           Title desc Sort descending by a direct child element named Title
 
         Notes:

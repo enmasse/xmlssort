@@ -105,6 +105,8 @@ xmlssort books.xml
 
 - `Name` sorts by a direct child element named `Name`
 - `@id` sorts by an attribute named `id`
+- `sortorder numeric` sorts numerically by a direct child element named `sortorder`
+- `@rank numeric desc` sorts numerically in descending order by an attribute named `rank`
 - `Title desc` sorts descending
 - `Title asc` sorts ascending explicitly
 
@@ -113,9 +115,24 @@ Examples:
 ```text
 /Catalog/Books/Book:@id
 /Catalog/Books/Book:Author,Title
+/Catalog/Books/Book:Price numeric
 /Catalog/Books/Book:Title desc
 /Library/Sections/Section:Name
 ```
+
+### Path wildcards
+
+- `*` matches characters within a single path segment
+- `**` matches zero or more whole path segments
+
+Examples:
+
+```text
+/operations/add/product/related_items__*/item:id
+/operations/add/product/**/related_items__*/item:id
+```
+
+In the second example, one rule sorts `item` elements under matching `related_items__*` containers both directly on `product` and deeper under structures such as `variants/variant`.
 
 ### Different keys at different levels
 
@@ -250,6 +267,11 @@ Defaults can be loaded from a JSON configuration file in the user profile.
 
 - Windows: `%USERPROFILE%\.xmlssort\config.json`
 - Linux/macOS: `~/.xmlssort/config.json`
+
+You can override the default lookup path with `XMLSSORT_CONFIG_PATH`.
+
+- Set it to an explicit file path to load configuration from another location.
+- Set it to an empty value to disable user-profile configuration lookup.
 
 Missing configuration is ignored.
 
