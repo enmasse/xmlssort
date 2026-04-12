@@ -60,6 +60,47 @@ public class XmlSortApplicationTests
     }
 
     [Test]
+    public async Task Run_AppliesMultipleSortRulesAtDifferentLevels()
+    {
+        const string input = "<Library><Sections><Section><Name>Fiction</Name><Books><Book id=\"2\"><Title>Zebra</Title></Book><Book id=\"1\"><Title>Alpha</Title></Book></Books></Section><Section><Name>Art</Name><Books><Book id=\"4\"><Title>Modern</Title></Book><Book id=\"3\"><Title>Classic</Title></Book></Books></Section></Sections></Library>";
+
+        int exitCode;
+        string stdout;
+        string stderr;
+
+        lock (ConsoleLock)
+        {
+            using var consoleScope = new ConsoleScope(input);
+
+            exitCode = CreateApplication().Run([
+                "--sort", "/Library/Sections/Section:Name",
+                "--sort", "/Library/Sections/Section/Books/Book:@id"
+            ]);
+            stdout = consoleScope.StandardOutput;
+            stderr = consoleScope.StandardError;
+        }
+
+        var document = XDocument.Parse(stdout);
+        var sections = document.Root!
+            .Element("Sections")!
+            .Elements("Section")
+            .ToArray();
+
+        var sectionNames = sections
+            .Select(section => section.Element("Name")!.Value)
+            .ToArray();
+
+        var bookIds = sections
+            .Select(section => string.Join(",", section.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value)))
+            .ToArray();
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(string.Join("|", sectionNames)).IsEqualTo("Art|Fiction");
+        await Assert.That(string.Join("|", bookIds)).IsEqualTo("3,4|1,2");
+        await Assert.That(string.IsNullOrWhiteSpace(stderr)).IsTrue();
+    }
+
+    [Test]
     public async Task Run_FormatsEmbeddedJsonWhenGlobalFlagIsApplied()
     {
         const string input = "<Root><Payload>{\"name\":\"Alice\",\"roles\":[\"admin\"]}</Payload></Root>";

@@ -50,6 +50,55 @@ public class XmlSorterTests
     }
 
     [Test]
+    public async Task Apply_SortsDifferentLevelsUsingDifferentRules()
+    {
+        var document = XDocument.Parse(
+            """
+            <Library>
+              <Sections>
+                <Section>
+                  <Name>Fiction</Name>
+                  <Books>
+                    <Book id="2"><Title>Zebra</Title></Book>
+                    <Book id="1"><Title>Alpha</Title></Book>
+                  </Books>
+                </Section>
+                <Section>
+                  <Name>Art</Name>
+                  <Books>
+                    <Book id="4"><Title>Modern</Title></Book>
+                    <Book id="3"><Title>Classic</Title></Book>
+                  </Books>
+                </Section>
+              </Sections>
+            </Library>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document,
+        [
+            SortRule.Parse("/Library/Sections/Section:Name"),
+            SortRule.Parse("/Library/Sections/Section/Books/Book:@id")
+        ]);
+
+        var sections = document.Root!
+            .Element("Sections")!
+            .Elements("Section")
+            .ToArray();
+
+        var sectionNames = sections
+            .Select(section => section.Element("Name")!.Value)
+            .ToArray();
+
+        var bookIds = sections
+            .Select(section => string.Join(",", section.Element("Books")!.Elements("Book").Select(book => book.Attribute("id")!.Value)))
+            .ToArray();
+
+        await Assert.That(string.Join("|", sectionNames)).IsEqualTo("Art|Fiction");
+        await Assert.That(string.Join("|", bookIds)).IsEqualTo("3,4|1,2");
+    }
+
+    [Test]
     public async Task Apply_SortsByAttributeThenElementValue()
     {
         var document = XDocument.Parse(
