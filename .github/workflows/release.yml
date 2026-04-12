@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'xmlssort/**'
+  workflow_dispatch:
 
 permissions:
   contents: write
