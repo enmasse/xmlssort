@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.0] - Unreleased
+
+### Added
+- A `--sort-tags` flag that recursively sorts all sibling elements alphabetically by local tag name throughout the entire document, without requiring explicit sort rules. The flag can be used standalone or combined with `--sort` rules. It is also available as a `sortTags` default in the user-profile configuration file.
+
 ## [1.2.0] - Unreleased
 
 ### Added
