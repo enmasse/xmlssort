@@ -31,7 +31,7 @@ internal sealed class UserProfileConfigurationLoader(string? configurationPath =
                 .Select(SortRule.Parse)
                 .ToArray();
 
-            return new UserConfiguration(sortRules, file.FormatXml ?? false, file.FormatJson ?? false);
+            return new UserConfiguration(sortRules, file.FormatXml ?? false, file.FormatJson ?? false, file.SortTags ?? false);
         }
         catch (JsonException ex)
         {
@@ -80,5 +80,8 @@ internal sealed class UserProfileConfigurationLoader(string? configurationPath =
 
         [JsonPropertyName("formatXml")]
         public bool? FormatXml { get; init; }
+
+        [JsonPropertyName("sortTags")]
+        public bool? SortTags { get; init; }
     }
 }

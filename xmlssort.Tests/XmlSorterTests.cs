@@ -545,4 +545,89 @@ public class XmlSorterTests
 
         await Assert.That(document.Root!.Name.LocalName).IsEqualTo("Library");
     }
+
+    [Test]
+    public async Task SortElementsByTagName_SortsChildrenAlphabeticallyByLocalName()
+    {
+        var element = XElement.Parse("<Root><Zebra /><Apple /><Mango /></Root>");
+
+        XmlSorter.SortElementsByTagName(element);
+
+        var names = element.Elements().Select(e => e.Name.LocalName).ToArray();
+
+        await Assert.That(string.Join("|", names)).IsEqualTo("Apple|Mango|Zebra");
+    }
+
+    [Test]
+    public async Task SortElementsByTagName_SortsRecursivelyIntoNestedElements()
+    {
+        var element = XElement.Parse("<Root><Outer><Zebra /><Apple /></Outer><Inner><Mango /><Berry /></Inner></Root>");
+
+        XmlSorter.SortElementsByTagName(element);
+
+        var outerNames = element.Element("Outer")!.Elements().Select(e => e.Name.LocalName).ToArray();
+        var innerNames = element.Element("Inner")!.Elements().Select(e => e.Name.LocalName).ToArray();
+
+        await Assert.That(string.Join("|", outerNames)).IsEqualTo("Apple|Zebra");
+        await Assert.That(string.Join("|", innerNames)).IsEqualTo("Berry|Mango");
+    }
+
+    [Test]
+    public async Task SortElementsByTagName_IsCaseInsensitive()
+    {
+        var element = XElement.Parse("<Root><beta /><Alpha /><GAMMA /></Root>");
+
+        XmlSorter.SortElementsByTagName(element);
+
+        var names = element.Elements().Select(e => e.Name.LocalName).ToArray();
+
+        await Assert.That(string.Join("|", names)).IsEqualTo("Alpha|beta|GAMMA");
+    }
+
+    [Test]
+    public async Task Apply_SortsByTagNameWhenSortByTagNameIsTrue()
+    {
+        var document = XDocument.Parse(
+            """
+            <Root>
+              <Zebra />
+              <Apple />
+              <Mango />
+            </Root>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [], sortByTagName: true);
+
+        var names = document.Root!.Elements().Select(e => e.Name.LocalName).ToArray();
+
+        await Assert.That(string.Join("|", names)).IsEqualTo("Apple|Mango|Zebra");
+    }
+
+    [Test]
+    public async Task Apply_SortsByTagNameAndThenAppliesSortRules()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book id="2"><Title>Beta</Title></Book>
+                <Book id="1"><Title>Alpha</Title></Book>
+              </Books>
+              <Authors>
+                <Author>Zebra</Author>
+                <Author>Apple</Author>
+              </Authors>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:@id")], sortByTagName: true);
+
+        var containerNames = document.Root!.Elements().Select(e => e.Name.LocalName).ToArray();
+        var bookIds = document.Root!.Element("Books")!.Elements("Book").Select(b => b.Attribute("id")!.Value).ToArray();
+
+        await Assert.That(string.Join("|", containerNames)).IsEqualTo("Authors|Books");
+        await Assert.That(string.Join("|", bookIds)).IsEqualTo("1|2");
+    }
 }

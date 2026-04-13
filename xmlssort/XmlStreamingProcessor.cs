@@ -6,7 +6,7 @@ internal static class XmlStreamingProcessor
 {
     public static bool CanProcess(CommandLineOptions options)
     {
-        return !options.FormatJson;
+        return !options.FormatJson && !options.SortByTagName;
     }
 
     public static void Process(string? inputPath, string? outputPath, CommandLineOptions options)

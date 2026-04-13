@@ -9,6 +9,7 @@ It supports:
 - `stdout` output or writing to a file
 - JSON configuration defaults from the user profile
 - optional canonical XML formatting for diff-friendly output
+- sorting all sibling elements alphabetically by tag name with `--sort-tags`
 - sorting by direct child element values
 - sorting by attribute values
 - optional formatting of embedded JSON in element values
@@ -57,8 +58,8 @@ Output:
 ## Command line usage
 
 ```text
-xmlssort [input-file | input-pattern | -] ... [--sort <path:key[,key...]> ...] [--format-xml] [--format-json] [--output <file | ->]
-xmlssort <input-file | input-pattern | input-directory> ... [--sort <path:key[,key...]> ...] [--format-xml] [--format-json] (--in-place | --rename | --write-new) [--suffix <text>] [--output-dir <directory>]
+xmlssort [input-file | input-pattern | -] ... [--sort <path:key[,key...]> ...] [--sort-tags] [--format-xml] [--format-json] [--output <file | ->]
+xmlssort <input-file | input-pattern | input-directory> ... [--sort <path:key[,key...]> ...] [--sort-tags] [--format-xml] [--format-json] (--in-place | --rename | --write-new) [--suffix <text>] [--output-dir <directory>]
 ```
 
 If command-line operations are omitted, defaults can come from the user profile configuration file.

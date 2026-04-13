@@ -3,14 +3,53 @@ using System.Xml.Linq;
 
 internal static class XmlSorter
 {
-    public static void Apply(XDocument document, IReadOnlyList<SortRule> rules)
+    public static void Apply(XDocument document, IReadOnlyList<SortRule> rules, bool sortByTagName = false)
     {
         if (document.Root is null)
         {
             throw new ArgumentException("The XML document does not have a root element.");
         }
 
+        if (sortByTagName)
+        {
+            SortElementsByTagName(document.Root);
+        }
+
         Apply(document.Root, CompileRules(rules), []);
+    }
+
+    internal static void SortElementsByTagName(XElement element)
+    {
+        var childElements = element.Elements().ToList();
+
+        if (childElements.Count >= 2)
+        {
+            var sorted = childElements.OrderBy(e => e.Name.LocalName, StringComparer.OrdinalIgnoreCase).ToArray();
+
+            if (!childElements.SequenceEqual(sorted))
+            {
+                var newElements = new XElement[childElements.Count];
+
+                for (var i = 0; i < childElements.Count; i++)
+                {
+                    var newElement = new XElement(sorted[i]);
+                    childElements[i].ReplaceWith(newElement);
+                    newElements[i] = newElement;
+                }
+
+                foreach (var child in newElements)
+                {
+                    SortElementsByTagName(child);
+                }
+
+                return;
+            }
+        }
+
+        foreach (var child in childElements)
+        {
+            SortElementsByTagName(child);
+        }
     }
 
     internal static CompiledSortRule[] CompileRules(IReadOnlyList<SortRule> rules)

@@ -91,6 +91,16 @@ public class CommandLineParsingTests
     }
 
     [Test]
+    public async Task Parse_ReadsGlobalSortTagsFlag()
+    {
+        var options = CommandLineOptions.Parse(["input.xml", "--sort-tags"]);
+
+        await Assert.That(options.InputPath).IsEqualTo("input.xml");
+        await Assert.That(options.SortByTagName).IsTrue();
+        await Assert.That(options.SortRules.Count).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task Parse_AllowsNoOperationsSoConfigurationCanSupplyDefaults()
     {
         var options = CommandLineOptions.Parse(["input.xml"]);

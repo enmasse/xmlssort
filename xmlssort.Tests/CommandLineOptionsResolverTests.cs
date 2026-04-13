@@ -67,6 +67,28 @@ public class CommandLineOptionsResolverTests
         }
 
         await Assert.That(threw).IsTrue();
-        await Assert.That(message).IsEqualTo("At least one operation is required. Supply --sort, --format-xml, and/or --format-json.");
+        await Assert.That(message).IsEqualTo("At least one operation is required. Supply --sort, --sort-tags, --format-xml, and/or --format-json.");
+    }
+
+    [Test]
+    public async Task Resolve_AllowsSortTagsAsTheOnlyOperation()
+    {
+        var resolved = CommandLineOptionsResolver.Resolve(
+            CommandLineOptions.Parse(["input.xml", "--sort-tags"]),
+            userConfiguration: null);
+
+        await Assert.That(resolved.SortByTagName).IsTrue();
+        await Assert.That(resolved.SortRules.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Resolve_UsesSortTagsFromConfigurationWhenCommandLineOmitsIt()
+    {
+        var commandLineOptions = CommandLineOptions.Parse(["input.xml", "--sort", "/Catalog/Books/Book:@id"]);
+        var configuration = new UserConfiguration([], FormatXml: false, FormatJson: false, SortByTagName: true);
+
+        var resolved = CommandLineOptionsResolver.Resolve(commandLineOptions, configuration);
+
+        await Assert.That(resolved.SortByTagName).IsTrue();
     }
 }

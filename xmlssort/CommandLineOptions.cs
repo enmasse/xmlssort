@@ -7,7 +7,8 @@ internal sealed record CommandLineOptions(
     bool FormatJson,
     bool ShowHelp,
     BatchOutputMode BatchOutputMode,
-    string? Suffix)
+    string? Suffix,
+    bool SortByTagName = false)
 {
     public string? InputPath => InputPaths.Count == 1 ? InputPaths[0] : null;
 
@@ -22,6 +23,7 @@ internal sealed record CommandLineOptions(
         var batchOutputMode = BatchOutputMode.None;
         string? outputDirectory = null;
         string? suffix = null;
+        var sortByTagName = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -56,6 +58,12 @@ internal sealed record CommandLineOptions(
             if (string.Equals(arg, "--format-json", StringComparison.OrdinalIgnoreCase))
             {
                 formatJson = true;
+                continue;
+            }
+
+            if (string.Equals(arg, "--sort-tags", StringComparison.OrdinalIgnoreCase))
+            {
+                sortByTagName = true;
                 continue;
             }
 
@@ -128,7 +136,7 @@ internal sealed record CommandLineOptions(
             ? suffix ?? BatchOutputPathResolver.DefaultSuffix
             : null;
 
-        return new CommandLineOptions(inputPaths, outputPath, outputDirectory, sortRules, formatXml, formatJson, showHelp, batchOutputMode, effectiveSuffix);
+        return new CommandLineOptions(inputPaths, outputPath, outputDirectory, sortRules, formatXml, formatJson, showHelp, batchOutputMode, effectiveSuffix, sortByTagName);
     }
 
     private static string ReadOptionValue(string[] args, ref int index, string optionName)
