@@ -8,17 +8,19 @@ internal static class CommandLineOptionsResolver
 
         var formatXml = commandLineOptions.FormatXml || userConfiguration?.FormatXml == true;
         var formatJson = commandLineOptions.FormatJson || userConfiguration?.FormatJson == true;
+        var sortByTagName = commandLineOptions.SortByTagName || userConfiguration?.SortByTagName == true;
 
-        if (!commandLineOptions.ShowHelp && sortRules.Count == 0 && !formatXml && !formatJson)
+        if (!commandLineOptions.ShowHelp && sortRules.Count == 0 && !formatXml && !formatJson && !sortByTagName)
         {
-            throw new ArgumentException("At least one operation is required. Supply --sort, --format-xml, and/or --format-json.");
+            throw new ArgumentException("At least one operation is required. Supply --sort, --sort-tags, --format-xml, and/or --format-json.");
         }
 
         return commandLineOptions with
         {
             SortRules = sortRules,
             FormatXml = formatXml,
-            FormatJson = formatJson
+            FormatJson = formatJson,
+            SortByTagName = sortByTagName
         };
     }
 }

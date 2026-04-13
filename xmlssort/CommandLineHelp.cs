@@ -2,8 +2,8 @@ internal static class CommandLineHelp
 {
     public const string Text = """
         Usage:
-          xmlssort [input-file | input-pattern | -] ... [--sort <path:key[,key...]> ...] [--format-xml] [--format-json] [--output <file | ->]
-          xmlssort <input-file | input-pattern | input-directory> ... [--sort <path:key[,key...]> ...] [--format-xml] [--format-json] (--in-place | --rename | --write-new) [--suffix <text>] [--output-dir <directory>]
+          xmlssort [input-file | input-pattern | -] ... [--sort <path:key[,key...]> ...] [--sort-tags] [--format-xml] [--format-json] [--output <file | ->]
+          xmlssort <input-file | input-pattern | input-directory> ... [--sort <path:key[,key...]> ...] [--sort-tags] [--format-xml] [--format-json] (--in-place | --rename | --write-new) [--suffix <text>] [--output-dir <directory>]
 
         Examples:
           xmlssort books.xml --sort "/Catalog/Books/Book:@id"
@@ -15,6 +15,7 @@ internal static class CommandLineHelp
           xmlssort "*.xml" --sort "/Catalog/Books/Book:@id" --write-new --suffix .sorted
           xmlssort .\xml --sort "/Catalog/Books/Book:@id" --write-new --output-dir .\sorted
           xmlssort "*.xml" --sort "/Catalog/Books/Book:@id" --rename
+          xmlssort books.xml --sort-tags
           xmlssort books.xml --format-xml
           xmlssort payloads.xml --format-json
           xmlssort books.xml
@@ -45,6 +46,7 @@ internal static class CommandLineHelp
           - `--output-dir` writes `--write-new` results into another directory while retaining the input directory structure.
           - Multiple --sort options may target different levels in the hierarchy.
           - Matching nested containers are sorted recursively by default.
+          - `--sort-tags` sorts all sibling elements alphabetically by tag name throughout the entire document.
           - `--format-xml` writes diff-friendly XML with normalized indentation.
           - `--format-json` pretty-prints valid JSON found in leaf element values.
           - Defaults can be loaded from `~/.xmlssort/config.json` or `%USERPROFILE%\.xmlssort\config.json`.

@@ -595,6 +595,59 @@ public class XmlSortApplicationTests
         await Assert.That(stderr.Contains("unexpected end", StringComparison.OrdinalIgnoreCase)).IsTrue();
     }
 
+    [Test]
+    public async Task Run_SortsByTagNameWhenSortTagsFlagIsSupplied()
+    {
+        const string input = "<Root><Zebra /><Apple /><Mango /></Root>";
+
+        int exitCode;
+        string stdout;
+        string stderr;
+
+        lock (ConsoleLock)
+        {
+            using var consoleScope = new ConsoleScope(input);
+
+            exitCode = CreateApplication().Run(["--sort-tags"]);
+            stdout = consoleScope.StandardOutput;
+            stderr = consoleScope.StandardError;
+        }
+
+        var document = XDocument.Parse(stdout);
+        var names = document.Root!.Elements().Select(e => e.Name.LocalName).ToArray();
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(string.Join("|", names)).IsEqualTo("Apple|Mango|Zebra");
+        await Assert.That(string.IsNullOrWhiteSpace(stderr)).IsTrue();
+    }
+
+    [Test]
+    public async Task Run_SortsByTagNameFromConfigurationDefault()
+    {
+        const string input = "<Root><Zebra /><Apple /><Mango /></Root>";
+
+        int exitCode;
+        string stdout;
+
+        lock (ConsoleLock)
+        {
+            using var consoleScope = new ConsoleScope(input);
+
+            exitCode = new XmlSortApplication(new FakeUserConfigurationLoader(new UserConfiguration(
+                [],
+                FormatXml: false,
+                FormatJson: false,
+                SortByTagName: true))).Run([]);
+            stdout = consoleScope.StandardOutput;
+        }
+
+        var document = XDocument.Parse(stdout);
+        var names = document.Root!.Elements().Select(e => e.Name.LocalName).ToArray();
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(string.Join("|", names)).IsEqualTo("Apple|Mango|Zebra");
+    }
+
     private static XmlSortApplication CreateApplication()
     {
         return new XmlSortApplication(new FakeUserConfigurationLoader(configuration: null));
