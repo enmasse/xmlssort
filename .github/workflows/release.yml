@@ -30,6 +30,9 @@ jobs:
           - rid: osx-arm64
             os: macos-latest
             artifact: xmlssort
+          - rid: win-arm64
+            os: windows-latest
+            artifact: xmlssort.exe
 
     steps:
       - uses: actions/checkout@v4
@@ -81,6 +84,7 @@ jobs:
           mv artifacts/xmlssort-win-x64/xmlssort.exe ./xmlssort-win-x64.exe
           mv artifacts/xmlssort-osx-x64/xmlssort     ./xmlssort-osx-x64
           mv artifacts/xmlssort-osx-arm64/xmlssort   ./xmlssort-osx-arm64
+          mv artifacts/xmlssort-win-arm64/xmlssort.exe ./xmlssort-win-arm64.exe
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -92,3 +96,4 @@ jobs:
             xmlssort-win-x64.exe
             xmlssort-osx-x64
             xmlssort-osx-arm64
+            xmlssort-win-arm64.exe
