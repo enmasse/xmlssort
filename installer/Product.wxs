@@ -1,0 +1,105 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="xmlssort"
+           Manufacturer="enmasse"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="B8404FD3-F52D-4C54-BD26-DA9A40D53BA4"
+           Scope="perUserOrMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="ApplicationFolderName" Value="xmlssort" />
+    <Property Id="WixAppFolder" Value="WixPerUserFolder" />
+    <Property Id="WixUISupportPerUser" Value="1" />
+    <Property Id="WixUISupportPerMachine" Value="1" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon.ico" />
+
+    <ui:WixUI Id="WixUI_Advanced" />
+    <Icon Id="ProductIcon.ico" SourceFile="$(var.BrandingDir)\xmlssort.ico" />
+    <WixVariable Id="WixUILicenseRtf" Value="InstallerLicense.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.BrandingDir)\InstallerBanner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.BrandingDir)\InstallerDialog.bmp" />
+
+    <Feature Id="CompleteFeature" Title="xmlssort" Level="1" Display="hidden" AllowAdvertise="no">
+      <Feature Id="UiFeature" Title="xmldiff UI" Description="Install the Windows user interface for comparing XML files." Level="1" AllowAdvertise="no">
+        <ComponentRef Id="XmldiffUiComponent" />
+        <ComponentRef Id="UserStartMenuShortcutComponent" />
+        <ComponentRef Id="MachineStartMenuShortcutComponent" />
+      </Feature>
+      <Feature Id="CliFeature" Title="Command-line tools" Description="Install the xmldiff and xmlssort command-line tools." Level="1" AllowAdvertise="no">
+        <ComponentRef Id="XmldiffCliComponent" />
+        <ComponentRef Id="XmlssortCliComponent" />
+        <Feature Id="PathFeature" Title="Add CLI tools to PATH" Description="Add the installed command-line tools directory to PATH." Level="1" AllowAdvertise="no">
+          <ComponentRef Id="UserPathComponent" />
+          <ComponentRef Id="MachinePathComponent" />
+        </Feature>
+      </Feature>
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="TARGETDIR">
+      <Directory Id="INSTALLFOLDER" Name="xmlssort">
+        <Directory Id="CLIFOLDER" Name="bin" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="UserApplicationProgramsFolder" Name="xmlssort" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="MachineStartMenuRoot" Name="Microsoft">
+        <Directory Id="MachineWindowsFolder" Name="Windows">
+          <Directory Id="MachineStartMenuFolder" Name="Start Menu">
+            <Directory Id="MachineApplicationProgramsFolder" Name="Programs">
+              <Directory Id="MachineShortcutFolder" Name="xmlssort" />
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="XmldiffUiComponent" Guid="0433E0E7-7775-451B-85AE-AD0B3C593B67">
+        <File Id="XmldiffUiExe" Source="$(var.UiPublishDir)\xmldiff.UI.exe" KeyPath="yes" Checksum="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="CLIFOLDER">
+      <Component Id="XmldiffCliComponent" Guid="21DD01E5-5B3E-453B-8A8E-7050053783D8">
+        <File Id="XmldiffCliExe" Source="$(var.XmlDiffPublishDir)\xmldiff.exe" KeyPath="yes" Checksum="yes" />
+      </Component>
+      <Component Id="XmlssortCliComponent" Guid="A09CB7C3-05CA-42D5-9E40-11F348912A13">
+        <File Id="XmlssortCliExe" Source="$(var.XmlSortPublishDir)\xmlssort.exe" KeyPath="yes" Checksum="yes" />
+      </Component>
+      <Component Id="UserPathComponent" Guid="3FA0DCE9-3D5F-427E-A36D-E775C5C8B0EE" Condition="MSIINSTALLPERUSER=1">
+        <RegistryValue Root="HKCU" Key="Software\enmasse\xmlssort" Name="CliPath" Type="string" Value="[CLIFOLDER]" KeyPath="yes" />
+        <Environment Id="UserCliPath" Action="set" Name="PATH" Part="last" Value="[CLIFOLDER]" />
+      </Component>
+      <Component Id="MachinePathComponent" Guid="E4115268-6BFC-47D8-9499-B0802041E1EE" Condition="ALLUSERS=1">
+        <RegistryValue Root="HKMU" Key="Software\enmasse\xmlssort" Name="CliPath" Type="string" Value="[CLIFOLDER]" KeyPath="yes" />
+        <Environment Id="MachineCliPath" Action="set" Name="PATH" Part="last" System="yes" Value="[CLIFOLDER]" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="UserApplicationProgramsFolder">
+      <Component Id="UserStartMenuShortcutComponent" Guid="5F9A724B-80FA-4E0A-A614-39B7B09BDF2E" Condition="MSIINSTALLPERUSER=1">
+        <Shortcut Id="UserXmldiffUiShortcut" Name="xmldiff UI" Target="[INSTALLFOLDER]xmldiff.UI.exe" WorkingDirectory="INSTALLFOLDER" Icon="ProductIcon.ico" />
+        <RemoveFolder Id="RemoveUserProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\enmasse\xmlssort" Name="UiShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="MachineShortcutFolder">
+      <Component Id="MachineStartMenuShortcutComponent" Guid="1A84E262-8412-4820-861E-4F6B82062336" Condition="ALLUSERS=1">
+        <Shortcut Id="MachineXmldiffUiShortcut" Name="xmldiff UI" Target="[INSTALLFOLDER]xmldiff.UI.exe" WorkingDirectory="INSTALLFOLDER" Icon="ProductIcon.ico" />
+        <RemoveFolder Id="RemoveMachineProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKMU" Key="Software\enmasse\xmlssort" Name="UiShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

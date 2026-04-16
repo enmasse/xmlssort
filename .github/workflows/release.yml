@@ -2,22 +2,16 @@ name: Release
 
 on:
   push:
-    branches:
-      - master
-    paths:
-      - 'xmlssort/**'
-      - 'xmldiff/**'
-      - 'xmlssort.Core/**'
-      - 'xmlssort.Tests/**'
-      - '.github/workflows/release.yml'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build (${{ matrix.rid }})
+  build-binaries:
+    name: Build binaries (${{ matrix.rid }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -39,89 +33,139 @@ jobs:
             executable_suffix: '.exe'
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: Setup .NET 9 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: 9.0.x
+          cache: true
+
+      - name: Restore solution
+        shell: pwsh
+        run: dotnet restore .\xmlssort.sln
 
       - name: Run tests
-        run: dotnet test xmlssort.Tests/xmlssort.Tests.csproj --configuration Release
+        shell: pwsh
+        run: dotnet test .\xmlssort.Tests\xmlssort.Tests.csproj -c Release --no-restore
 
       - name: Publish
+        shell: pwsh
         run: >
-          dotnet publish xmlssort/xmlssort.csproj
+          dotnet publish .\xmlssort\xmlssort.csproj
           --configuration Release
           --runtime ${{ matrix.rid }}
-          --output publish/xmlssort/${{ matrix.rid }}
+          --output publish\xmlssort\${{ matrix.rid }}
           /p:VersionSuffix=${{ github.run_number }}
 
       - name: Publish xmldiff
+        shell: pwsh
         run: >
-          dotnet publish xmldiff/xmldiff.csproj
+          dotnet publish .\xmldiff\xmldiff.csproj
           --configuration Release
           --runtime ${{ matrix.rid }}
-          --output publish/xmldiff/${{ matrix.rid }}
+          --output publish\xmldiff\${{ matrix.rid }}
           /p:VersionSuffix=${{ github.run_number }}
 
       - name: Upload xmlssort artifact
         uses: actions/upload-artifact@v4
         with:
           name: xmlssort-${{ matrix.rid }}
-          path: publish/xmlssort/${{ matrix.rid }}/xmlssort${{ matrix.executable_suffix }}
+          path: publish\xmlssort\${{ matrix.rid }}\xmlssort${{ matrix.executable_suffix }}
 
       - name: Upload xmldiff artifact
         uses: actions/upload-artifact@v4
         with:
           name: xmldiff-${{ matrix.rid }}
-          path: publish/xmldiff/${{ matrix.rid }}/xmldiff${{ matrix.executable_suffix }}
+          path: publish\xmldiff\${{ matrix.rid }}\xmldiff${{ matrix.executable_suffix }}
+
+  build-installers:
+    name: Build installers (${{ matrix.platform }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - x64
+          - x86
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+          cache: true
+
+      - name: Prepare code-signing certificate
+        if: ${{ secrets.XMLSSORT_CERTIFICATE_PFX_BASE64 != '' }}
+        shell: pwsh
+        env:
+          XMLSSORT_CERTIFICATE_PFX_BASE64: ${{ secrets.XMLSSORT_CERTIFICATE_PFX_BASE64 }}
+        run: |
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'xmlssort-codesign.pfx'
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:XMLSSORT_CERTIFICATE_PFX_BASE64))
+          "XMLSSORT_CERTIFICATE_FILE_PATH=$certificatePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build installer
+        shell: pwsh
+        env:
+          XMLSSORT_SIGN_ARTIFACTS: ${{ secrets.XMLSSORT_CERTIFICATE_THUMBPRINT != '' || secrets.XMLSSORT_CERTIFICATE_PFX_BASE64 != '' }}
+          XMLSSORT_CERTIFICATE_THUMBPRINT: ${{ secrets.XMLSSORT_CERTIFICATE_THUMBPRINT }}
+          XMLSSORT_CERTIFICATE_PASSWORD: ${{ secrets.XMLSSORT_CERTIFICATE_PASSWORD }}
+          XMLSSORT_SIGNTOOL_PATH: ${{ vars.XMLSSORT_SIGNTOOL_PATH }}
+          XMLSSORT_TIMESTAMP_URL: ${{ vars.XMLSSORT_TIMESTAMP_URL }}
+        run: .\build.ps1 -Configuration Release -Platform ${{ matrix.platform }}
+
+      - name: Package published tools
+        shell: pwsh
+        run: |
+          $archivePath = "artifacts\installer\win-${{ matrix.platform }}\xmlssort-tools-${{ matrix.platform }}.zip"
+          Compress-Archive -Path "artifacts\publish\win-${{ matrix.platform }}\*" -DestinationPath $archivePath -Force
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.platform }}
+          path: |
+            artifacts\installer\win-${{ matrix.platform }}\*.msi
+            artifacts\installer\win-${{ matrix.platform }}\*.zip
+          if-no-files-found: error
 
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: build
+    needs:
+      - build-binaries
+      - build-installers
+    if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Read version prefix
-        id: version
-        run: |
-          VERSION_PREFIX=$(grep -oP '(?<=<VersionPrefix>)[^<]+' xmlssort/xmlssort.csproj)
-          echo "tag=v${VERSION_PREFIX}.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-
       - name: Download all artifacts
-        uses: actions/download-artifact@v4.1.3
+        uses: actions/download-artifact@v4
         with:
-          path: artifacts
-
-      - name: Rename artifacts
-        run: |
-          mv artifacts/xmlssort-linux-x64/xmlssort   ./xmlssort-linux-x64
-          mv artifacts/xmlssort-win-x64/xmlssort.exe ./xmlssort-win-x64.exe
-          mv artifacts/xmlssort-osx-x64/xmlssort     ./xmlssort-osx-x64
-          mv artifacts/xmlssort-osx-arm64/xmlssort   ./xmlssort-osx-arm64
-          mv artifacts/xmlssort-win-arm64/xmlssort.exe ./xmlssort-win-arm64.exe
-          mv artifacts/xmldiff-linux-x64/xmldiff   ./xmldiff-linux-x64
-          mv artifacts/xmldiff-win-x64/xmldiff.exe ./xmldiff-win-x64.exe
-          mv artifacts/xmldiff-osx-x64/xmldiff     ./xmldiff-osx-x64
-          mv artifacts/xmldiff-osx-arm64/xmldiff   ./xmldiff-osx-arm64
-          mv artifacts/xmldiff-win-arm64/xmldiff.exe ./xmldiff-win-arm64.exe
+          path: release-assets
+          merge-multiple: true
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ github.ref_name }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
-            xmlssort-linux-x64
-            xmlssort-win-x64.exe
-            xmlssort-osx-x64
-            xmlssort-osx-arm64
-            xmlssort-win-arm64.exe
-            xmldiff-linux-x64
-            xmldiff-win-x64.exe
-            xmldiff-osx-x64
-            xmldiff-osx-arm64
-            xmldiff-win-arm64.exe
+            release-assets/*.msi
+            release-assets/*.zip
+            release-assets/xmlssort-linux-x64
+            release-assets/xmlssort-win-x64.exe
+            release-assets/xmlssort-osx-x64
+            release-assets/xmlssort-osx-arm64
+            release-assets/xmlssort-win-arm64.exe
+            release-assets/xmldiff-linux-x64
+            release-assets/xmldiff-win-x64.exe
+            release-assets/xmldiff-osx-x64
+            release-assets/xmldiff-osx-arm64
+            release-assets/xmldiff-win-arm64.exe

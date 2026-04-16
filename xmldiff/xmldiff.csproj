@@ -15,7 +15,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\xmldiff.Core\xmldiff.Core.csproj" />
     <ProjectReference Include="..\xmlssort.Core\xmlssort.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="ElementDifferenceDetail.cs" />
+    <Compile Remove="ElementDifferenceDetailCollector.cs" />
+    <Compile Remove="HtmlDiffReportWriter.cs" />
+    <Compile Remove="KeyedDifferenceKind.cs" />
+    <Compile Remove="SortRuleFormatter.cs" />
+    <Compile Remove="TextDiffReportWriter.cs" />
+    <Compile Remove="XmlDiffEngine.cs" />
+    <Compile Remove="XmlDiffReport.cs" />
   </ItemGroup>
 
 </Project>

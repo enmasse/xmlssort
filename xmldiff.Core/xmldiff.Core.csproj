@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\xmlssort.Core\xmlssort.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\xmldiff\ElementDifferenceDetail.cs" Link="ElementDifferenceDetail.cs" />
+    <Compile Include="..\xmldiff\ElementDifferenceDetailCollector.cs" Link="ElementDifferenceDetailCollector.cs" />
+    <Compile Include="..\xmldiff\HtmlDiffReportWriter.cs" Link="HtmlDiffReportWriter.cs" />
+    <Compile Include="..\xmldiff\KeyedDifferenceKind.cs" Link="KeyedDifferenceKind.cs" />
+    <Compile Include="..\xmldiff\SortRuleFormatter.cs" Link="SortRuleFormatter.cs" />
+    <Compile Include="..\xmldiff\TextDiffReportWriter.cs" Link="TextDiffReportWriter.cs" />
+    <Compile Include="..\xmldiff\XmlDiffEngine.cs" Link="XmlDiffEngine.cs" />
+    <Compile Include="..\xmldiff\XmlDiffReport.cs" Link="XmlDiffReport.cs" />
+  </ItemGroup>
+
+</Project>

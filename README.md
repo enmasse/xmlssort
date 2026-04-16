@@ -343,8 +343,10 @@ You can still provide multiple `--sort` rules when different hierarchy levels ne
 - `xmlssort/SortKeyKind.cs` - key type enum
 - `xmlssort/SortDirection.cs` - sort direction enum
 - `xmldiff/Program.cs` - diff tool entry point
+- `xmldiff.Core/` - shared xmldiff comparison and report generation library
 - `xmldiff/DiffCommandLineOptions.cs` - diff command-line parsing
 - `xmldiff/DiffCommandLineHelp.cs` - diff CLI help text
+- `xmldiff.UI/` - Windows UI for xmldiff with drag-and-drop input and embedded report preview
 - `xmlssort.Tests/` - TUnit test project
 
 ## xmldiff
@@ -354,6 +356,15 @@ You can still provide multiple `--sort` rules when different hierarchy levels ne
 - It reads `sort`, `formatJson`, `formatXml`, and `sortTags` defaults from the same configuration file as `xmlssort`.
 - At least one keyed `--sort` rule is required so matching elements can be correlated.
 - Reports can be written as text or HTML.
+
+### xmldiff UI
+
+`xmldiff.UI` is a Windows Forms front end for `xmldiff`.
+
+- Drag one or two XML files onto the window to populate the left and right inputs.
+- Review or change the shared defaults loaded from the xmlssort configuration file.
+- Preview either the HTML report or the text report inside the embedded Windows Forms browser control.
+- Optionally save the generated report to `.html` or `.txt`.
 
 Example:
 
@@ -366,6 +377,99 @@ xmldiff left.xml right.xml --sort "/Catalog/Books/Book:@id" --report-format html
 ```powershell
 dotnet build
 ```
+
+Build the Windows installer:
+
+```powershell
+.\build.ps1
+```
+
+The build script regenerates the installer branding assets, reads the installer version from `xmlssort\xmlssort.csproj`, publishes self-contained Windows binaries for:
+
+- `xmldiff.UI`
+- `xmldiff`
+- `xmlssort`
+
+and then builds a platform-specific MSI such as `artifacts\installer\win-x64\xmlssort-installer-x64.msi`.
+
+The MSI exposes installer-time options for:
+
+- per-user or per-machine installation
+- changing the install path
+- installing the `xmldiff` UI
+- installing the CLI tools
+- adding the CLI install directory to `PATH`
+- creating Start Menu shortcuts for the UI
+
+Optional build script parameters:
+
+```powershell
+.\build.ps1 -Platform x64
+.\build.ps1 -Platform x86
+.\build.ps1 -VersionSourceProject .\xmldiff\xmldiff.csproj
+.\build.ps1 -InstallerVersion 1.4.1
+```
+
+Optional code-signing parameters:
+
+```powershell
+.\build.ps1 -Platform x64 -SignArtifacts -CertificateThumbprint <thumbprint>
+.\build.ps1 -Platform x64 -SignArtifacts -CertificateFilePath .\certificates\codesign.pfx -CertificatePassword <password>
+```
+
+When signing is enabled, the build script signs the published executables first and then signs the generated MSI. You can override the signing tool path with `-SignToolPath` and the timestamp service with `-TimestampUrl`.
+
+CI-friendly signing environment variables:
+
+- `XMLSSORT_SIGN_ARTIFACTS`
+- `XMLSSORT_SIGNTOOL_PATH`
+- `XMLSSORT_CERTIFICATE_THUMBPRINT`
+- `XMLSSORT_CERTIFICATE_FILE_PATH`
+- `XMLSSORT_CERTIFICATE_PASSWORD`
+- `XMLSSORT_TIMESTAMP_URL`
+
+Examples:
+
+```powershell
+$env:XMLSSORT_SIGN_ARTIFACTS = 'true'
+$env:XMLSSORT_CERTIFICATE_THUMBPRINT = '<thumbprint>'
+.\build.ps1 -Platform x64
+```
+
+```powershell
+$env:XMLSSORT_CERTIFICATE_FILE_PATH = '.\certificates\codesign.pfx'
+$env:XMLSSORT_CERTIFICATE_PASSWORD = '<password>'
+.\build.ps1 -Platform x64
+```
+
+Explicit script arguments override environment variables. If `XMLSSORT_SIGN_ARTIFACTS` is not set, the build script automatically enables signing when a certificate thumbprint or certificate file path is provided through the environment.
+
+## CI and releases
+
+The GitHub Actions CI workflow:
+
+- runs on pushes to `master`
+- runs on pull requests
+- is filtered to repository paths that affect the build, tests, installer, or workflows
+- builds the installer for `x64` and `x86`
+- uploads the MSI files and packaged Windows publish outputs as workflow artifacts
+
+The GitHub Actions release workflow:
+
+- runs when a tag matching `v*` is pushed
+- builds the existing cross-platform CLI release binaries
+- builds the Windows installers for `x64` and `x86`
+- publishes all generated binaries, MSI files, and packaged Windows publish outputs to the GitHub release for that tag
+
+Optional GitHub secrets and variables for CI signing:
+
+- secret `XMLSSORT_CERTIFICATE_THUMBPRINT`
+- secret `XMLSSORT_CERTIFICATE_PFX_BASE64`
+- secret `XMLSSORT_CERTIFICATE_PASSWORD`
+- variable `XMLSSORT_SIGNTOOL_PATH`
+- variable `XMLSSORT_TIMESTAMP_URL`
+
+When `XMLSSORT_CERTIFICATE_PFX_BASE64` is used, the workflow writes the decoded certificate to a temporary `.pfx` file and passes that path to `build.ps1` through the signing environment variables.
 
 ## Publishing a single executable
 
@@ -415,6 +519,12 @@ Run `xmldiff`:
 
 ```powershell
 dotnet run --project .\xmldiff\xmldiff.csproj -- left.xml right.xml --sort "/Catalog/Books/Book:@id"
+```
+
+Run `xmldiff.UI`:
+
+```powershell
+dotnet run --project .\xmldiff.UI\xmldiff.UI.csproj
 ```
 
 ## Testing
