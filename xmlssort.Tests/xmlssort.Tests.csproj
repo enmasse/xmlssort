@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\xmlssort.Core\xmlssort.Core.csproj" />
     <ProjectReference Include="..\xmlssort\xmlssort.csproj" />
   </ItemGroup>
 

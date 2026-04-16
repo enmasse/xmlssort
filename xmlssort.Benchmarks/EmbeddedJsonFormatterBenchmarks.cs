@@ -17,7 +17,7 @@ public class EmbeddedJsonFormatterBenchmarks
     [GlobalSetup]
     public void GlobalSetup()
     {
-        var assembly = Assembly.Load("xmlssort");
+        var assembly = Assembly.Load("xmlssort.Core");
         var formatterType = assembly.GetType("EmbeddedJsonFormatter", throwOnError: true)!;
         var method = formatterType.GetMethod("Apply", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
         apply = document => method.Invoke(null, [document]);

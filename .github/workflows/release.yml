@@ -6,6 +6,10 @@ on:
       - master
     paths:
       - 'xmlssort/**'
+      - 'xmldiff/**'
+      - 'xmlssort.Core/**'
+      - 'xmlssort.Tests/**'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 permissions:
@@ -20,19 +24,19 @@ jobs:
         include:
           - rid: linux-x64
             os: ubuntu-latest
-            artifact: xmlssort
+            executable_suffix: ''
           - rid: win-x64
             os: windows-latest
-            artifact: xmlssort.exe
+            executable_suffix: '.exe'
           - rid: osx-x64
             os: macos-latest
-            artifact: xmlssort
+            executable_suffix: ''
           - rid: osx-arm64
             os: macos-latest
-            artifact: xmlssort
+            executable_suffix: ''
           - rid: win-arm64
             os: windows-latest
-            artifact: xmlssort.exe
+            executable_suffix: '.exe'
 
     steps:
       - uses: actions/checkout@v4
@@ -50,14 +54,28 @@ jobs:
           dotnet publish xmlssort/xmlssort.csproj
           --configuration Release
           --runtime ${{ matrix.rid }}
-          --output publish/${{ matrix.rid }}
+          --output publish/xmlssort/${{ matrix.rid }}
           /p:VersionSuffix=${{ github.run_number }}
 
-      - name: Upload artifact
+      - name: Publish xmldiff
+        run: >
+          dotnet publish xmldiff/xmldiff.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --output publish/xmldiff/${{ matrix.rid }}
+          /p:VersionSuffix=${{ github.run_number }}
+
+      - name: Upload xmlssort artifact
         uses: actions/upload-artifact@v4
         with:
           name: xmlssort-${{ matrix.rid }}
-          path: publish/${{ matrix.rid }}/${{ matrix.artifact }}
+          path: publish/xmlssort/${{ matrix.rid }}/xmlssort${{ matrix.executable_suffix }}
+
+      - name: Upload xmldiff artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xmldiff-${{ matrix.rid }}
+          path: publish/xmldiff/${{ matrix.rid }}/xmldiff${{ matrix.executable_suffix }}
 
   release:
     name: Create Release
@@ -85,6 +103,11 @@ jobs:
           mv artifacts/xmlssort-osx-x64/xmlssort     ./xmlssort-osx-x64
           mv artifacts/xmlssort-osx-arm64/xmlssort   ./xmlssort-osx-arm64
           mv artifacts/xmlssort-win-arm64/xmlssort.exe ./xmlssort-win-arm64.exe
+          mv artifacts/xmldiff-linux-x64/xmldiff   ./xmldiff-linux-x64
+          mv artifacts/xmldiff-win-x64/xmldiff.exe ./xmldiff-win-x64.exe
+          mv artifacts/xmldiff-osx-x64/xmldiff     ./xmldiff-osx-x64
+          mv artifacts/xmldiff-osx-arm64/xmldiff   ./xmldiff-osx-arm64
+          mv artifacts/xmldiff-win-arm64/xmldiff.exe ./xmldiff-win-arm64.exe
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -97,3 +120,8 @@ jobs:
             xmlssort-osx-x64
             xmlssort-osx-arm64
             xmlssort-win-arm64.exe
+            xmldiff-linux-x64
+            xmldiff-win-x64.exe
+            xmldiff-osx-x64
+            xmldiff-osx-arm64
+            xmldiff-win-arm64.exe

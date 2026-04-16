@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\xmlssort\CanonicalXmlFormatter.cs" Link="CanonicalXmlFormatter.cs" />
+    <Compile Include="..\xmlssort\CompiledSortRule.cs" Link="CompiledSortRule.cs" />
+    <Compile Include="..\xmlssort\EmbeddedJsonFormatter.cs" Link="EmbeddedJsonFormatter.cs" />
+    <Compile Include="..\xmlssort\IUserConfigurationLoader.cs" Link="IUserConfigurationLoader.cs" />
+    <Compile Include="..\xmlssort\SortDirection.cs" Link="SortDirection.cs" />
+    <Compile Include="..\xmlssort\SortKey.cs" Link="SortKey.cs" />
+    <Compile Include="..\xmlssort\SortKeyKind.cs" Link="SortKeyKind.cs" />
+    <Compile Include="..\xmlssort\SortRule.cs" Link="SortRule.cs" />
+    <Compile Include="..\xmlssort\UserConfiguration.cs" Link="UserConfiguration.cs" />
+    <Compile Include="..\xmlssort\UserProfileConfigurationLoader.cs" Link="UserProfileConfigurationLoader.cs" />
+    <Compile Include="..\xmlssort\XmlDocumentProcessor.cs" Link="XmlDocumentProcessor.cs" />
+    <Compile Include="..\xmlssort\XmlPathPatternMatcher.cs" Link="XmlPathPatternMatcher.cs" />
+    <Compile Include="..\xmlssort\XmlSorter.cs" Link="XmlSorter.cs" />
+  </ItemGroup>
+
+</Project>

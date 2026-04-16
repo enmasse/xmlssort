@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.0] - Unreleased
+
+### Changed
+- `xmldiff` now uses the same `1.4` version prefix as `xmlssort`.
+- The release workflow now builds and publishes `xmldiff` release assets for the supported runtime identifiers alongside `xmlssort`.
+
 ## [1.3.0] - Unreleased
 
 ### Added

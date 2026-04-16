@@ -648,6 +648,37 @@ public class XmlSortApplicationTests
         await Assert.That(string.Join("|", names)).IsEqualTo("Apple|Mango|Zebra");
     }
 
+    [Test]
+    public async Task Run_PromotesElementSortKeysWhenSortTagsFlagIsCombinedWithSortRule()
+    {
+        const string input = "<Catalog><Books><Book><Meta>B</Meta><Title>Beta</Title><Author>Baker</Author></Book></Books></Catalog>";
+
+        int exitCode;
+        string stdout;
+        string stderr;
+
+        lock (ConsoleLock)
+        {
+            using var consoleScope = new ConsoleScope(input);
+
+            exitCode = CreateApplication().Run(["--sort", "/Catalog/Books/Book:Title", "--sort-tags"]);
+            stdout = consoleScope.StandardOutput;
+            stderr = consoleScope.StandardError;
+        }
+
+        var childNames = XDocument.Parse(stdout)
+            .Root!
+            .Element("Books")!
+            .Element("Book")!
+            .Elements()
+            .Select(element => element.Name.LocalName)
+            .ToArray();
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(string.Join("|", childNames)).IsEqualTo("Title|Author|Meta");
+        await Assert.That(string.IsNullOrWhiteSpace(stderr)).IsTrue();
+    }
+
     private static XmlSortApplication CreateApplication()
     {
         return new XmlSortApplication(new FakeUserConfigurationLoader(configuration: null));

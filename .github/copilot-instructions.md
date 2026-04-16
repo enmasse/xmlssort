@@ -4,6 +4,8 @@
 - User prefers code to be structured with stronger architectural separation rather than keeping all logic in a single file.
 - User considers data from real XML samples private and does not want sample-derived information leaked into repository tests or documentation. Only repository tests should be sanitized to avoid leaking private sample data.
 - Tests in this repository should not read configuration from the user's profile; they must use isolated configuration sources instead.
+- Related tools such as `xmldiff` should read configuration from the same config file as `xmlssort`.
+- For `xmldiff` reports in this repository, identical tags on both sides should not be shown; only real differences should be surfaced. Nested variant differences should be shown recursively.
 
 ## Performance Analysis
 - When analyzing performance in this repository, treat JSON pretty printing and user-configuration loading as separate concerns from XML file loading unless the measured execution path explicitly includes them.

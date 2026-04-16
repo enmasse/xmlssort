@@ -1,26 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net9.0</TargetFrameworks>
     <OutputType>Exe</OutputType>
-    <AssemblyName>xmlssort.Benchmarks</AssemblyName>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>xmlssort.Benchmarks</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <VersionPrefix>1.4</VersionPrefix>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.15.2" />
-    <PackageReference Include="Microsoft.VisualStudio.DiagnosticsHub.BenchmarkDotNetDiagnosers" Version="18.3.36812.1" />
+    <ProjectReference Include="..\xmlssort.Core\xmlssort.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\xmlssort.Core\xmlssort.Core.csproj" />
-    <ProjectReference Include="..\xmlssort\xmlssort.csproj" />
-  </ItemGroup>
 </Project>

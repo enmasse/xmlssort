@@ -17,7 +17,7 @@ public class XmlSorterBenchmarks
     [GlobalSetup]
     public void GlobalSetup()
     {
-        var assembly = Assembly.Load("xmlssort");
+        var assembly = Assembly.Load("xmlssort.Core");
         var sorterType = assembly.GetType("XmlSorter", throwOnError: true)!;
         var sortRuleType = assembly.GetType("SortRule", throwOnError: true)!;
         var applyMethod = sorterType.GetMethod("Apply", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;

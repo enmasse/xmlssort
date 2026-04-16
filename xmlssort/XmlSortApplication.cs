@@ -159,14 +159,7 @@ internal sealed class XmlSortApplication(IUserConfigurationLoader? userConfigura
 
     private static XDocument ProcessDocument(XDocument document, CommandLineOptions options)
     {
-        XmlSorter.Apply(document, options.SortRules, options.SortByTagName);
-
-        if (options.FormatJson)
-        {
-            EmbeddedJsonFormatter.Apply(document);
-        }
-
-        return document;
+        return XmlDocumentProcessor.Normalize(document, options.SortRules, options.SortByTagName, options.FormatJson);
     }
 
     private static void WriteOutput(XDocument document, string? outputPath, bool formatXml)

@@ -630,4 +630,91 @@ public class XmlSorterTests
         await Assert.That(string.Join("|", containerNames)).IsEqualTo("Authors|Books");
         await Assert.That(string.Join("|", bookIds)).IsEqualTo("1|2");
     }
+
+    [Test]
+    public async Task Apply_PromotesElementSortKeysToTopOfEachBlockWhenSortingTags()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book>
+                  <Meta>B</Meta>
+                  <Title>Beta</Title>
+                  <Author>Baker</Author>
+                </Book>
+              </Books>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:Title")], sortByTagName: true);
+
+        var childNames = document.Root!
+            .Element("Books")!
+            .Element("Book")!
+            .Elements()
+            .Select(element => element.Name.LocalName)
+            .ToArray();
+
+        await Assert.That(string.Join("|", childNames)).IsEqualTo("Title|Author|Meta");
+    }
+
+    [Test]
+    public async Task Apply_PromotesMultipleElementSortKeysInDeclaredOrderWhenSortingTags()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book>
+                  <Meta>B</Meta>
+                  <Title>Beta</Title>
+                  <Author>Baker</Author>
+                </Book>
+              </Books>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:Title,Author")], sortByTagName: true);
+
+        var childNames = document.Root!
+            .Element("Books")!
+            .Element("Book")!
+            .Elements()
+            .Select(element => element.Name.LocalName)
+            .ToArray();
+
+        await Assert.That(string.Join("|", childNames)).IsEqualTo("Title|Author|Meta");
+    }
+
+    [Test]
+    public async Task Apply_DoesNotPromoteAttributeOnlySortKeysWhenSortingTags()
+    {
+        var document = XDocument.Parse(
+            """
+            <Catalog>
+              <Books>
+                <Book id="2">
+                  <Meta>B</Meta>
+                  <Title>Beta</Title>
+                  <Author>Baker</Author>
+                </Book>
+              </Books>
+            </Catalog>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+        XmlSorter.Apply(document, [SortRule.Parse("/Catalog/Books/Book:@id")], sortByTagName: true);
+
+        var childNames = document.Root!
+            .Element("Books")!
+            .Element("Book")!
+            .Elements()
+            .Select(element => element.Name.LocalName)
+            .ToArray();
+
+        await Assert.That(string.Join("|", childNames)).IsEqualTo("Author|Meta|Title");
+    }
 }

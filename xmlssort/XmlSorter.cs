@@ -10,12 +10,15 @@ internal static class XmlSorter
             throw new ArgumentException("The XML document does not have a root element.");
         }
 
+        var compiledRules = CompileRules(rules);
+
         if (sortByTagName)
         {
             SortElementsByTagName(document.Root);
+            PromoteSortKeys(document.Root, compiledRules, []);
         }
 
-        Apply(document.Root, CompileRules(rules), []);
+        Apply(document.Root, compiledRules, []);
     }
 
     internal static void SortElementsByTagName(XElement element)
@@ -64,6 +67,14 @@ internal static class XmlSorter
         return compiledRules;
     }
 
+    internal static void PromoteSortKeys(XElement root, IReadOnlyList<CompiledSortRule> rules, IReadOnlyList<string> pathPrefix)
+    {
+        foreach (var rule in rules)
+        {
+            PromoteRuleKeys(root, rule, pathPrefix);
+        }
+    }
+
     internal static void Apply(XElement root, IReadOnlyList<CompiledSortRule> rules, IReadOnlyList<string> pathPrefix)
     {
         foreach (var rule in rules)
@@ -83,6 +94,20 @@ internal static class XmlSorter
         foreach (var parent in topLevelParents)
         {
             SortChildrenRecursively(parent, rule.ParentMatcher, rule.TargetMatcher, rule.Keys);
+        }
+    }
+
+    private static void PromoteRuleKeys(XElement root, CompiledSortRule rule, IReadOnlyList<string> pathPrefix)
+    {
+        var topLevelParents = new List<XElement>();
+        var currentPath = new List<string>(pathPrefix.Count + 8);
+        currentPath.AddRange(pathPrefix);
+
+        CollectTopLevelParents(root, rule.ParentPathMatcher, false, currentPath, topLevelParents);
+
+        foreach (var parent in topLevelParents)
+        {
+            PromoteTargetKeysRecursively(parent, rule.ParentMatcher, rule.TargetMatcher, rule.Keys);
         }
     }
 
@@ -129,6 +154,23 @@ internal static class XmlSorter
         }
     }
 
+    private static void PromoteTargetKeysRecursively(
+        XElement current,
+        XmlPathPatternMatcher.SegmentMatcher parentMatcher,
+        XmlPathPatternMatcher.SegmentMatcher targetMatcher,
+        IReadOnlyList<SortKey> keys)
+    {
+        if (parentMatcher.IsMatch(current.Name.LocalName))
+        {
+            PromoteTargetKeys(current, targetMatcher, keys);
+        }
+
+        foreach (var child in current.Elements().ToList())
+        {
+            PromoteTargetKeysRecursively(child, parentMatcher, targetMatcher, keys);
+        }
+    }
+
     private static void SortChildren(XElement parent, XmlPathPatternMatcher.SegmentMatcher targetMatcher, IReadOnlyList<SortKey> keys)
     {
         var targetMatchCache = new Dictionary<string, bool>(StringComparer.Ordinal);
@@ -152,6 +194,68 @@ internal static class XmlSorter
         {
             targetElements[targetIndex].ReplaceWith(new XElement(sortedTargets[targetIndex]));
         }
+    }
+
+    private static void PromoteTargetKeys(XElement parent, XmlPathPatternMatcher.SegmentMatcher targetMatcher, IReadOnlyList<SortKey> keys)
+    {
+        var targetMatchCache = new Dictionary<string, bool>(StringComparer.Ordinal);
+
+        foreach (var targetElement in parent.Elements().Where(element => IsTargetElementMatch(element, targetMatcher, targetMatchCache)).ToList())
+        {
+            PromoteElementKeys(targetElement, keys);
+        }
+    }
+
+    private static void PromoteElementKeys(XElement element, IReadOnlyList<SortKey> keys)
+    {
+        var childElements = element.Elements().ToList();
+
+        if (childElements.Count < 2)
+        {
+            return;
+        }
+
+        var keyNames = GetPromotedKeyNames(keys);
+
+        if (keyNames.Length == 0)
+        {
+            return;
+        }
+
+        var promotedElements = new List<XElement>(childElements.Count);
+
+        foreach (var keyName in keyNames)
+        {
+            promotedElements.AddRange(childElements.Where(child => string.Equals(child.Name.LocalName, keyName, StringComparison.Ordinal)));
+        }
+
+        promotedElements.AddRange(childElements.Where(child => !keyNames.Contains(child.Name.LocalName)));
+
+        if (childElements.SequenceEqual(promotedElements))
+        {
+            return;
+        }
+
+        for (var childIndex = 0; childIndex < childElements.Count; childIndex++)
+        {
+            childElements[childIndex].ReplaceWith(new XElement(promotedElements[childIndex]));
+        }
+    }
+
+    private static string[] GetPromotedKeyNames(IReadOnlyList<SortKey> keys)
+    {
+        var keyNames = new List<string>(keys.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var key in keys)
+        {
+            if (key.Kind == SortKeyKind.Element && seen.Add(key.Name))
+            {
+                keyNames.Add(key.Name);
+            }
+        }
+
+        return keyNames.ToArray();
     }
 
     private static bool IsTargetElementMatch(

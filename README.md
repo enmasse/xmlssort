@@ -2,6 +2,8 @@
 
 `xmlssort` is a .NET 9 console application for sorting XML documents while preserving the document hierarchy.
 
+The repository also includes `xmldiff`, a companion .NET 9 console application that sorts matching XML elements by the same keys and then reports real differences between two XML documents.
+
 It supports:
 - file input or `stdin`
 - multiple file inputs and wildcard patterns for batch processing
@@ -340,7 +342,24 @@ You can still provide multiple `--sort` rules when different hierarchy levels ne
 - `xmlssort/UserProfileConfigurationLoader.cs` - profile-based JSON config loading
 - `xmlssort/SortKeyKind.cs` - key type enum
 - `xmlssort/SortDirection.cs` - sort direction enum
+- `xmldiff/Program.cs` - diff tool entry point
+- `xmldiff/DiffCommandLineOptions.cs` - diff command-line parsing
+- `xmldiff/DiffCommandLineHelp.cs` - diff CLI help text
 - `xmlssort.Tests/` - TUnit test project
+
+## xmldiff
+
+`xmldiff` compares two XML files after applying the same keyed sort rules used by `xmlssort`.
+
+- It reads `sort`, `formatJson`, `formatXml`, and `sortTags` defaults from the same configuration file as `xmlssort`.
+- At least one keyed `--sort` rule is required so matching elements can be correlated.
+- Reports can be written as text or HTML.
+
+Example:
+
+```powershell
+xmldiff left.xml right.xml --sort "/Catalog/Books/Book:@id" --report-format html --output report.html
+```
 
 ## Building
 
@@ -370,7 +389,13 @@ Publish for macOS arm64:
 dotnet publish .\xmlssort\xmlssort.csproj -c Release -r osx-arm64
 ```
 
-The executable is written to a runtime-specific publish folder under `xmlssort\bin\Release\net9.0\<rid>\publish\`.
+Publish `xmldiff` for Windows x64:
+
+```powershell
+dotnet publish .\xmldiff\xmldiff.csproj -c Release -r win-x64
+```
+
+Each executable is written to a runtime-specific publish folder under its project directory, for example `xmlssort\bin\Release\net9.0\<rid>\publish\` or `xmldiff\bin\Release\net9.0\<rid>\publish\`.
 
 This uses standard single-file publishing, so it does not require Native AOT toolchain prerequisites.
 
@@ -384,6 +409,12 @@ Using `stdin`:
 
 ```powershell
 Get-Content books.xml | dotnet run --project .\xmlssort\xmlssort.csproj -- --sort "/Catalog/Books/Book:@id"
+```
+
+Run `xmldiff`:
+
+```powershell
+dotnet run --project .\xmldiff\xmldiff.csproj -- left.xml right.xml --sort "/Catalog/Books/Book:@id"
 ```
 
 ## Testing
